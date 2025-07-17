@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>📚 도서관 장서점검 스캐너 v2.0</title>
-    <script src="https://unpkg.com/@zxing/library@latest/umd/index.min.js"></script>
+    <title>📚 도서관 장서점검 스캐너 v2.1</title>
+    <!-- 라이브러리 버전을 특정하여 안정성 확보 -->
+    <script src="https://unpkg.com/@zxing/library@0.21.0/umd/index.min.js"></script>
     <style>
         /* --- 기본 스타일 (변경 없음) --- */
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -66,7 +67,6 @@
             pointer-events: none;
             display: none;
         }
-        /* --- [수정] 레이저 라인 애니메이션 제거 및 고정 --- */
         .grid-overlay::after {
             content: '';
             position: absolute;
@@ -84,7 +84,7 @@
     <div class="container">
         <div class="header">
             <div id="scanIndicator" class="indicator-light"></div>
-            <h1>📚 도서관 장서점검 v2.0</h1>
+            <h1>📚 도서관 장서점검 v2.1</h1>
             <p>바코드 스캐너</p>
         </div>
         
@@ -158,6 +158,7 @@
                 this.scanHistory = [];
                 this.isScanning = false;
                 this.codeReader = null;
+                this.controls = null; // [추가] 컨트롤 객체 저장
                 this.lastScannedCode = '';
                 this.lastScanTime = 0;
                 this.scanCooldown = 2000;
@@ -209,38 +210,41 @@
                 this.codeReader = new ZXing.BrowserMultiFormatReader(hints);
             }
             
-            // [핵심 개선] 가장 안정적인 `decodeFromVideoDevice` 방식으로 스캔 로직을 전면 수정
+            // [핵심 개선] 스캔 로직을 가장 안정적인 방식으로 전면 수정
             async startScanning() {
                 this.hideMessages();
                 this.isScanning = true;
                 this.startBtn.style.display = 'none';
                 this.stopBtn.style.display = 'block';
                 this.gridOverlay.style.display = 'block';
-                this.showSuccess('📷 스캔을 시작합니다...');
+                this.showSuccess('📷 카메라를 시작합니다...');
 
                 try {
-                    // `decodeFromVideoDevice`는 라이브러리가 직접 카메라 스트림을 관리하여 안정성이 높습니다.
-                    // 첫 번째 인자를 `undefined`로 설정하면 후면 카메라를 우선적으로 사용합니다.
-                    this.codeReader.decodeFromVideoDevice(undefined, 'video', (result, err) => {
-                        // 스캔이 중지된 후에는 콜백을 무시합니다.
-                        if (!this.isScanning) {
-                            return;
-                        }
-                        if (result) {
-                            this.processBarcodeResult(result.getText());
-                        }
-                        if (err && !(err instanceof ZXing.NotFoundException)) {
-                            console.error('스캔 오류:', err);
-                            this.showError('스캔 중 오류가 발생했습니다.');
-                        }
+                    // 1. 라이브러리가 아닌, 브라우저 표준 API로 직접 카메라 스트림을 요청합니다.
+                    //    이 방식은 특수한 브라우저 환경에서 호환성이 더 높습니다.
+                    const stream = await navigator.mediaDevices.getUserMedia({
+                        video: { facingMode: 'environment' }
                     });
+                    this.video.srcObject = stream;
+
+                    // 2. 비디오가 재생될 준비가 되면, 라이브러리에 스트림을 넘겨 분석을 시작합니다.
+                    //    '카메라 켜기'와 '바코드 읽기'의 역할을 명확히 분리합니다.
+                    this.video.oncanplay = () => {
+                        this.controls = this.codeReader.decodeFromVideoElement(this.video, (result, err) => {
+                            if (!this.isScanning) return;
+                            if (result) {
+                                this.processBarcodeResult(result.getText());
+                            }
+                            if (err && !(err instanceof ZXing.NotFoundException)) {
+                                console.error('스캔 오류:', err);
+                            }
+                        });
+                    };
                 } catch (error) {
                     console.error('카메라 시작 중 오류 발생:', error);
                     let userMessage = '카메라를 시작할 수 없습니다: ' + error.name;
                     if (error.name === 'NotAllowedError') {
                         userMessage = '카메라 접근 권한이 필요합니다. 브라우저 설정에서 권한을 허용해주세요.';
-                    } else if (error.name === 'NotFoundError' || error.name === 'OverconstrainedError') {
-                        userMessage = '사용 가능한 후면 카메라를 찾거나 요청한 해상도를 지원할 수 없습니다.';
                     }
                     this.showError(userMessage);
                     this.stopScanning();
@@ -314,8 +318,11 @@
             
             stopScanning() {
                 this.isScanning = false;
-                // `reset`을 호출하여 라이브러리가 사용 중인 모든 리소스(카메라 포함)를 해제합니다.
-                this.codeReader.reset();
+                // [수정] 라이브러리가 반환한 컨트롤 객체를 사용하여 스트림을 정지합니다.
+                if (this.controls) {
+                    this.controls.stop();
+                    this.controls = null;
+                }
                 this.gridOverlay.style.display = 'none';
 
                 this.startBtn.style.display = 'block';
@@ -383,7 +390,7 @@
                                 <label style="display: block; margin-bottom: 5px; font-weight: bold;">📄 CSV 데이터 미리보기:</label>
                                 <textarea readonly style="width: 100%; height: 200px; padding: 10px; border: 1px solid #ddd; border-radius: 5px; font-family: monospace; font-size: 12px; resize: none;">${csvContent}</textarea>
                             </div>
-                            <div class="modal-buttons">
+                            <div class.modal-buttons">
                                 <button id="closeExportModalBtn" class="btn btn-danger" style="width: 100%;">❌ 닫기</button>
                             </div>
                         </div>
