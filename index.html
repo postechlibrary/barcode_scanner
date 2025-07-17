@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>📚 도서관 장서점검 스캐너 v1.5</title>
+    <title>📚 도서관 장서점검 스캐너 v1.6</title>
     <script src="https://unpkg.com/@zxing/library@latest/umd/index.min.js"></script>
     <style>
         /* --- 기본 스타일 (변경 없음) --- */
@@ -57,13 +57,12 @@
     <div class="container">
         <div class="header">
             <div id="scanIndicator" class="indicator-light"></div>
-            <h1>📚 도서관 장서점검 v1.5</h1>
+            <h1>📚 도서관 장서점검 v1.6</h1>
             <p>바코드 스캐너</p>
         </div>
         
         <div class="scanner-area">
             <video id="video" autoplay muted playsinline></video>
-            <!-- 세로 모드 보정을 위한 숨겨진 캔버스 -->
             <canvas id="canvas" style="display: none;"></canvas>
         </div>
         
@@ -132,7 +131,7 @@
                 this.scanHistory = [];
                 this.isScanning = false;
                 this.codeReader = null;
-                this.mediaStream = null; // 미디어 스트림 저장을 위해 추가
+                this.mediaStream = null;
                 this.lastScannedCode = '';
                 this.lastScanTime = 0;
                 this.scanCooldown = 2000;
@@ -144,7 +143,7 @@
             
             initializeElements() {
                 this.video = document.getElementById('video');
-                this.canvas = document.getElementById('canvas'); // 캔버스 엘리먼트
+                this.canvas = document.getElementById('canvas');
                 this.ctx = this.canvas.getContext('2d');
                 this.startBtn = document.getElementById('startBtn');
                 this.stopBtn = document.getElementById('stopBtn');
@@ -195,7 +194,6 @@
                             height: { ideal: 720 }
                         }
                     };
-                    // 사용자 미디어 스트림 직접 요청
                     this.mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
                     this.video.srcObject = this.mediaStream;
                     
@@ -205,7 +203,6 @@
                         this.stopBtn.style.display = 'block';
                         this.showSuccess('📷 스캔이 시작되었습니다!');
                         this.activatePowerSavingMode();
-                        // [핵심 개선] 프레임 단위 스캔 루프 시작
                         requestAnimationFrame(() => this.scanFrame());
                     };
 
@@ -222,31 +219,34 @@
                 }
             }
 
-            // [핵심 개선] 프레임 단위 스캔 및 회전 보정 로직
             scanFrame() {
                 if (!this.isScanning) return;
 
                 if (this.video.readyState === this.video.HAVE_ENOUGH_DATA) {
-                    // 세로 모드 감지 (화면의 높이가 너비보다 클 경우)
-                    const isPortrait = window.innerHeight > window.innerWidth;
+                    // [핵심 수정] 매 프레임마다 캔버스 변환 상태를 초기화하여 누적 오류 방지
+                    this.ctx.setTransform(1, 0, 0, 1, 0, 0);
 
-                    if (isPortrait) {
-                        // 세로 모드일 경우, 캔버스 크기를 비디오의 가로/세로와 반대로 설정
+                    // 비디오의 실제 크기가 화면 방향과 일치하지 않는 경우를 감지하여 보정
+                    const isVideoLandscape = this.video.videoWidth > this.video.videoHeight;
+                    const isDisplayPortrait = window.innerHeight > window.innerWidth;
+
+                    if (isVideoLandscape && isDisplayPortrait) {
+                        // 비디오는 가로, 화면은 세로일 때 -> 90도 회전 보정
                         this.canvas.width = this.video.videoHeight;
                         this.canvas.height = this.video.videoWidth;
-                        // 캔버스를 90도 회전시켜 이미지를 바로 세움
+                        
                         this.ctx.translate(this.canvas.width, 0);
                         this.ctx.rotate(90 * Math.PI / 180);
-                        this.ctx.drawImage(this.video, 0, 0);
+                        
+                        this.ctx.drawImage(this.video, 0, 0, this.video.videoWidth, this.video.videoHeight);
                     } else {
-                        // 가로 모드일 경우, 캔버스 크기를 비디오와 동일하게 설정
+                        // 그 외의 경우 (가로/가로 등) -> 회전 불필요
                         this.canvas.width = this.video.videoWidth;
                         this.canvas.height = this.video.videoHeight;
                         this.ctx.drawImage(this.video, 0, 0, this.canvas.width, this.canvas.height);
                     }
 
                     try {
-                        // 보정된 캔버스에서 바코드를 읽음
                         const result = this.codeReader.decodeFromCanvas(this.canvas);
                         if (result) {
                             this.processBarcodeResult(result.getText());
@@ -257,7 +257,6 @@
                         }
                     }
                 }
-                // 다음 프레임 요청
                 requestAnimationFrame(() => this.scanFrame());
             }
             
@@ -328,7 +327,6 @@
             
             stopScanning() {
                 this.isScanning = false;
-                // 미디어 스트림이 활성화 상태일 때 각 트랙을 중지
                 if (this.mediaStream) {
                     this.mediaStream.getTracks().forEach(track => track.stop());
                 }
@@ -609,3 +607,4 @@
     </script>
 </body>
 </html>
+
