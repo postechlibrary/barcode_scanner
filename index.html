@@ -3,203 +3,71 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>📚 도서관 장서점검 스캐너 V1.0</title>
+    <title>📚 도서관 장서점검 스캐너 v1.1</title>
     <script src="https://unpkg.com/@zxing/library@latest/umd/index.min.js"></script>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
+        /* --- 기본 스타일 (변경 없음) --- */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             padding: 10px;
         }
-        
-        .container {
-            max-width: 500px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-            overflow: hidden;
-        }
-        
-        .header {
-            background: linear-gradient(135deg, #4CAF50, #45a049);
-            color: white;
+        .container { max-width: 500px; margin: 20px auto; background: white; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); overflow: hidden; }
+        .header { background: linear-gradient(135deg, #4CAF50, #45a049); color: white; padding: 20px; text-align: center; }
+        .header h1 { font-size: 1.5em; margin-bottom: 5px; }
+        .scanner-area { position: relative; padding: 20px; }
+        #video { width: 100%; max-width: 100%; border-radius: 10px; border: 3px solid #4CAF50; background: #333; }
+        .controls { padding: 0 20px 20px; }
+        .btn { width: 100%; padding: 12px; margin: 5px 0; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; transition: all 0.3s; }
+        .btn-primary { background: #4CAF50; color: white; }
+        .btn-primary:hover { background: #45a049; }
+        .btn-secondary { background: #2196F3; color: white; }
+        .btn-secondary:hover { background: #1976D2; }
+        .btn-danger { background: #f44336; color: white; }
+        .btn-danger:hover { background: #d32f2f; }
+        .stats { display: flex; justify-content: space-around; padding: 15px 20px; background: #f5f5f5; border-top: 1px solid #ddd; }
+        .stat-item { text-align: center; }
+        .stat-value { font-size: 24px; font-weight: bold; color: #4CAF50; }
+        .stat-label { font-size: 12px; color: #666; }
+        .scan-list { max-height: 300px; overflow-y: auto; padding: 20px; border-top: 1px solid #ddd; }
+        .scan-item { background: #f9f9f9; padding: 10px; margin: 5px 0; border-radius: 5px; border-left: 4px solid #4CAF50; font-family: monospace; font-size: 14px; }
+        .scan-time { color: #666; font-size: 12px; }
+        .settings { padding: 20px; border-top: 1px solid #ddd; background: #fafafa; }
+        .setting-item { margin: 10px 0; }
+        .setting-item label { display: block; margin-bottom: 5px; font-weight: bold; }
+        .setting-item input { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
+        .message-box { padding: 10px; border-radius: 5px; margin: 10px 20px; display: none; }
+        .error-message { background: #ffebee; color: #c62828; }
+        .success-message { background: #e8f5e8; color: #2e7d32; }
+        .toggle-btn { background: none; border: none; color: #2196F3; cursor: pointer; text-decoration: underline; margin: 10px 0; padding: 5px; display: block; margin-left: auto; margin-right: auto;}
+
+        /* --- 모달 스타일 추가 --- */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.7); z-index: 1000;
+            display: flex; align-items: center; justify-content: center;
             padding: 20px;
-            text-align: center;
         }
-        
-        .header h1 {
-            font-size: 1.5em;
-            margin-bottom: 5px;
+        .modal-content {
+            background: white; border-radius: 10px; padding: 20px;
+            width: 100%; max-width: 500px; max-height: 90vh;
+            overflow: hidden; display: flex; flex-direction: column;
         }
-        
-        .scanner-area {
-            position: relative;
-            padding: 20px;
-        }
-        
-        #video {
-            width: 100%;
-            max-width: 100%;
-            border-radius: 10px;
-            border: 3px solid #4CAF50;
-        }
-        
-        .controls {
-            padding: 0 20px 20px;
-        }
-        
-        .btn {
-            width: 100%;
-            padding: 12px;
-            margin: 5px 0;
-            border: none;
-            border-radius: 8px;
-            font-size: 16px;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-        
-        .btn-primary {
-            background: #4CAF50;
-            color: white;
-        }
-        
-        .btn-primary:hover {
-            background: #45a049;
-        }
-        
-        .btn-secondary {
-            background: #2196F3;
-            color: white;
-        }
-        
-        .btn-secondary:hover {
-            background: #1976D2;
-        }
-        
-        .btn-danger {
-            background: #f44336;
-            color: white;
-        }
-        
-        .btn-danger:hover {
-            background: #d32f2f;
-        }
-        
-        .stats {
-            display: flex;
-            justify-content: space-around;
-            padding: 15px 20px;
-            background: #f5f5f5;
-            border-top: 1px solid #ddd;
-        }
-        
-        .stat-item {
-            text-align: center;
-        }
-        
-        .stat-value {
-            font-size: 24px;
-            font-weight: bold;
-            color: #4CAF50;
-        }
-        
-        .stat-label {
-            font-size: 12px;
-            color: #666;
-        }
-        
-        .scan-list {
-            max-height: 300px;
-            overflow-y: auto;
-            padding: 20px;
-            border-top: 1px solid #ddd;
-        }
-        
-        .scan-item {
-            background: #f9f9f9;
-            padding: 10px;
-            margin: 5px 0;
-            border-radius: 5px;
-            border-left: 4px solid #4CAF50;
-            font-family: monospace;
-            font-size: 14px;
-        }
-        
-        .scan-time {
-            color: #666;
-            font-size: 12px;
-        }
-        
-        .settings {
-            padding: 20px;
-            border-top: 1px solid #ddd;
-            background: #fafafa;
-        }
-        
-        .setting-item {
-            margin: 10px 0;
-        }
-        
-        .setting-item label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: bold;
-        }
-        
-        .setting-item input {
-            width: 100%;
-            padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-        }
-        
-        .error-message {
-            background: #ffebee;
-            color: #c62828;
-            padding: 10px;
-            border-radius: 5px;
-            margin: 10px 0;
-            display: none;
-        }
-        
-        .success-message {
-            background: #e8f5e8;
-            color: #2e7d32;
-            padding: 10px;
-            border-radius: 5px;
-            margin: 10px 0;
-            display: none;
-        }
-        
-        .toggle-btn {
-            background: none;
-            border: none;
-            color: #2196F3;
-            cursor: pointer;
-            text-decoration: underline;
-            margin: 10px 0;
-        }
+        .modal-content h3 { margin: 0 0 10px 0; text-align: center; }
+        .modal-buttons { display: flex; gap: 10px; margin-top: 20px; }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>📚 도서관 장서점검</h1>
+            <h1>📚 도서관 장서점검 v1.1</h1>
             <p>바코드 스캐너</p>
         </div>
         
         <div class="scanner-area">
             <video id="video" autoplay muted playsinline></video>
-            <canvas id="canvas" style="display: none;"></canvas>
         </div>
         
         <div class="controls">
@@ -207,11 +75,11 @@
             <button id="stopBtn" class="btn btn-danger" style="display: none;">⏹️ 스캔 중지</button>
             <button id="exportBtn" class="btn btn-secondary">💾 데이터 내보내기</button>
             <button id="clearBtn" class="btn btn-danger">🗑️ 목록 지우기</button>
-            <button class="toggle-btn" onclick="toggleSettings()">⚙️ 설정</button>
+            <button id="settingsToggleBtn" class="toggle-btn">⚙️ 설정</button>
         </div>
         
-        <div class="error-message" id="errorMsg"></div>
-        <div class="success-message" id="successMsg"></div>
+        <div id="errorMsg" class="message-box error-message"></div>
+        <div id="successMsg" class="message-box success-message"></div>
         
         <div class="stats">
             <div class="stat-item">
@@ -260,13 +128,11 @@
             constructor() {
                 this.scannedCodes = new Set();
                 this.scanHistory = [];
-                this.duplicateAttempts = 0;
                 this.isScanning = false;
                 this.codeReader = null;
-                this.stream = null;
                 this.lastScannedCode = '';
                 this.lastScanTime = 0;
-                this.scanCooldown = 2000; // 같은 바코드 재스캔 방지 (2초로 연장하여 발열 방지)
+                this.scanCooldown = 2000; // 같은 바코드 재스캔 방지 (2초)
                 
                 this.initializeElements();
                 this.initializeEventListeners();
@@ -279,6 +145,8 @@
                 this.stopBtn = document.getElementById('stopBtn');
                 this.exportBtn = document.getElementById('exportBtn');
                 this.clearBtn = document.getElementById('clearBtn');
+                this.settingsToggleBtn = document.getElementById('settingsToggleBtn');
+                this.settingsPanel = document.getElementById('settingsPanel');
                 this.scanList = document.getElementById('scanList');
                 this.totalCount = document.getElementById('totalCount');
                 this.validCount = document.getElementById('validCount');
@@ -295,118 +163,74 @@
                 this.startBtn.addEventListener('click', () => this.startScanning());
                 this.stopBtn.addEventListener('click', () => this.stopScanning());
                 this.exportBtn.addEventListener('click', () => this.exportData());
-                this.clearBtn.addEventListener('click', () => this.clearData());
+                this.clearBtn.addEventListener('click', () => this.showClearConfirmModal());
+                this.settingsToggleBtn.addEventListener('click', () => this.toggleSettings());
             }
             
             initializeCodeReader() {
-                // 효율적인 바코드 인식을 위한 최적화된 설정
                 const hints = new Map();
-                
-                // 더 정확한 스캔을 위한 설정 (적당한 수준으로 조정)
                 hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
-                
-                // 도서관에서 주로 사용하는 바코드 포맷만 선택 (성능 최적화)
                 hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [
                     ZXing.BarcodeFormat.CODE_128,
                     ZXing.BarcodeFormat.CODE_39,
                     ZXing.BarcodeFormat.EAN_13,
                     ZXing.BarcodeFormat.EAN_8
                 ]);
-                
-                // 회전된 바코드도 인식하도록 설정 (ZXing 내장 기능 활용)
                 hints.set(ZXing.DecodeHintType.ALSO_INVERTED, true);
-                
                 this.codeReader = new ZXing.BrowserMultiFormatReader(hints);
-                
-                // 배터리 효율을 위한 적정 해상도 설정
-                this.cameraConstraints = {
-                    video: {
-                        facingMode: 'environment',
-                        width: { ideal: 1280, max: 1280 },
-                        height: { ideal: 720, max: 720 },
-                        frameRate: { ideal: 15, max: 30 } // 프레임레이트 제한으로 발열 방지
-                    }
-                };
             }
             
             async startScanning() {
                 try {
                     this.hideMessages();
-                    
-                    // 이전 스캔이 있다면 정리
-                    if (this.codeReader) {
-                        this.codeReader.reset();
-                    }
-                    
                     this.isScanning = true;
                     this.startBtn.style.display = 'none';
                     this.stopBtn.style.display = 'block';
-                    
-                    // 최적화된 스캔 시작 (발열 방지)
-                    this.startOptimizedScanning();
-                    
-                    this.showSuccess('📷 스캔이 시작되었습니다! (저전력 모드)');
-                    
+
+                    // --- 개선점 1: 스캔 안정성을 위해 decodeFromConstraints 사용 ---
+                    // 표준 HD 해상도를 요청하여 가로/세로 모드에서 일관된 비디오 스트림을 얻습니다.
+                    const constraints = {
+                        video: {
+                            facingMode: 'environment',
+                            width: { ideal: 1280 },
+                            height: { ideal: 720 }
+                        }
+                    };
+
+                    this.codeReader.decodeFromConstraints(constraints, 'video', (result, err) => {
+                        if (result && this.isScanning) {
+                            this.processBarcodeResult(result.text);
+                        }
+                        if (err && !(err instanceof ZXing.NotFoundException)) {
+                            console.error('스캔 오류:', err);
+                        }
+                    });
+
+                    this.showSuccess('📷 스캔이 시작되었습니다!');
+                    this.activatePowerSavingMode();
                 } catch (error) {
-                    this.showError('카메라 접근 실패: ' + error.message);
-                    this.resetUI();
+                    console.error('카메라 시작 오류:', error);
+                    if (error.name === 'NotAllowedError') {
+                        this.showError('카메라 접근 권한이 필요합니다. 브라우저 설정을 확인해주세요.');
+                    } else {
+                        this.showError('카메라를 시작할 수 없습니다: ' + error.message);
+                    }
+                    this.stopScanning(); // UI를 원래 상태로 되돌립니다.
                 }
             }
             
-            startOptimizedScanning() {
-                // ZXing 라이브러리의 최적화된 스캔 방식 사용
-                this.codeReader.decodeFromVideoDevice(null, 'video', (result, err) => {
-                    if (result && this.isScanning) {
-                        this.processBarcodeResult(result.text);
-                    }
-                    // 에러는 바코드가 감지되지 않는 정상적인 상황이므로 무시
-                });
-                
-                // 추가 배터리 절약을 위한 저전력 모드 활성화
-                this.activatePowerSavingMode();
-            }
-            
             activatePowerSavingMode() {
-                // 화면 밝기 조절 권장 알림
                 if (this.scanHistory.length === 0) {
                     setTimeout(() => {
                         this.showInfo('💡 배터리 절약 팁: 화면 밝기를 조절하세요');
                     }, 3000);
                 }
-                
-                // 10분 후 자동 일시정지 제안
-                setTimeout(() => {
-                    if (this.isScanning) {
-                        this.showInfo('🔋 장시간 사용 감지. 배터리 절약을 위해 잠시 휴식을 권장합니다.');
-                    }
-                }, 600000); // 10분
             }
-            
-            async scanContinuously() {
-                if (!this.isScanning) return;
-                
-                try {
-                    const result = await this.codeReader.decodeOnceFromVideoDevice(undefined, 'video');
-                    if (result) {
-                        this.processBarcodeResult(result.text);
-                    }
-                } catch (error) {
-                    // 바코드가 감지되지 않은 경우는 정상이므로 무시
-                }
-                
-                // 연속 스캔을 위해 재귀 호출 (100ms 간격)
-                if (this.isScanning) {
-                    setTimeout(() => this.scanContinuously(), 100);
-                }
-            }
-            
+
             processBarcodeResult(barcode) {
                 const now = Date.now();
-                
-                // 배터리 절약 모드에 따른 쿨다운 조정
                 const currentCooldown = this.batterySavingSetting.checked ? this.scanCooldown : 1000;
                 
-                // 중복 스캔 방지
                 if (barcode === this.lastScannedCode && (now - this.lastScanTime) < currentCooldown) {
                     return;
                 }
@@ -414,43 +238,37 @@
                 this.lastScannedCode = barcode;
                 this.lastScanTime = now;
                 
-                const timeString = new Date(now).toLocaleString('ko-KR');
-                
-                // 유효성 검사
                 const prefix = this.prefixSetting.value.trim();
                 const minLength = parseInt(this.minLengthSetting.value);
                 
-                let isValid = true;
-                let errorReason = '';
-                
                 if (prefix && !barcode.startsWith(prefix)) {
-                    isValid = false;
-                    errorReason = `올바르지 않은 시작 문자 (${prefix}로 시작해야 함)`;
+                    this.handleInvalidScan(`올바르지 않은 시작 문자 (${prefix}로 시작해야 함)`, barcode);
+                    return;
                 }
                 
                 if (barcode.length < minLength) {
-                    isValid = false;
-                    errorReason = `바코드 길이가 너무 짧음 (최소 ${minLength}자)`;
-                }
-                
-                if (!isValid) {
-                    this.playErrorSound();
-                    this.showError(`❌ ${errorReason}: ${barcode}`);
+                    this.handleInvalidScan(`바코드 길이가 너무 짧음 (최소 ${minLength}자)`, barcode);
                     return;
                 }
                 
-                // 중복 검사
-                const isDuplicate = this.scannedCodes.has(barcode);
+                if (this.scannedCodes.has(barcode)) {
+                    this.handleInvalidScan(`중복된 바코드`, barcode, true);
+                    return;
+                }
                 
+                this.handleValidScan(barcode, now);
+            }
+
+            handleInvalidScan(reason, barcode, isDuplicate = false) {
+                this.playErrorSound();
+                this.showError(`❌ ${reason}: ${barcode}`);
                 if (isDuplicate) {
-                    this.duplicateAttempts++;
-                    this.playErrorSound();
-                    this.showError(`🔄 중복된 바코드: ${barcode}`);
-                    this.updateStats();
-                    return;
+                    this.updateStats(true);
                 }
-                
-                // 성공적으로 스캔됨
+            }
+
+            handleValidScan(barcode, now) {
+                const timeString = new Date(now).toLocaleString('ko-KR');
                 this.scannedCodes.add(barcode);
                 this.scanHistory.push({
                     barcode: barcode,
@@ -466,14 +284,12 @@
             
             stopScanning() {
                 this.isScanning = false;
-                
-                if (this.stream) {
-                    this.stream.getTracks().forEach(track => track.stop());
+                if (this.codeReader) {
+                    this.codeReader.reset();
                 }
-                
                 this.startBtn.style.display = 'block';
                 this.stopBtn.style.display = 'none';
-                
+                this.video.srcObject = null; // 비디오 스트림 정리
                 this.showSuccess('⏹️ 스캔이 중지되었습니다');
             }
             
@@ -484,7 +300,7 @@
                 }
                 
                 this.scanList.innerHTML = this.scanHistory
-                    .slice(-50) // 최근 50개만 표시
+                    .slice(-100)
                     .reverse()
                     .map(item => `
                         <div class="scan-item">
@@ -494,10 +310,14 @@
                     `).join('');
             }
             
-            updateStats() {
-                this.totalCount.textContent = this.scanHistory.length;
-                this.validCount.textContent = this.scannedCodes.size;
-                this.duplicateCount.textContent = this.scanHistory.length - this.scannedCodes.size;
+            updateStats(isDuplicateAttempt = false) {
+                const totalScans = this.scanHistory.length + (isDuplicateAttempt ? 1 : 0);
+                const validScans = this.scannedCodes.size;
+                const duplicateScans = totalScans - validScans;
+
+                this.totalCount.textContent = totalScans;
+                this.validCount.textContent = validScans;
+                this.duplicateCount.textContent = duplicateScans;
             }
             
             exportData() {
@@ -513,113 +333,79 @@
                     )
                 ].join('\n');
                 
-                // 모바일에서 더 안정적인 방법으로 데이터 내보내기
                 this.showExportModal(csvContent);
             }
             
             showExportModal(csvContent) {
-                // 기존 모달이 있으면 제거
-                const existingModal = document.getElementById('exportModal');
-                if (existingModal) {
-                    existingModal.remove();
-                }
-                
-                // 모달 생성
-                const modal = document.createElement('div');
-                modal.id = 'exportModal';
-                modal.style.cssText = `
-                    position: fixed;
-                    top: 0;
-                    left: 0;
-                    width: 100%;
-                    height: 100%;
-                    background: rgba(0,0,0,0.8);
-                    z-index: 1000;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    padding: 20px;
-                `;
-                
-                modal.innerHTML = `
-                    <div style="
-                        background: white;
-                        border-radius: 10px;
-                        padding: 20px;
-                        width: 100%;
-                        max-width: 500px;
-                        max-height: 80vh;
-                        overflow: hidden;
-                        display: flex;
-                        flex-direction: column;
-                    ">
-                        <h3 style="margin: 0 0 15px 0; text-align: center;">📊 데이터 내보내기</h3>
-                        
-                        <div style="margin-bottom: 15px;">
-                            <button onclick="scanner.copyToClipboard('${csvContent.replace(/'/g, "\\'")}', this)" 
-                                    style="width: 100%; padding: 12px; background: #4CAF50; color: white; border: none; border-radius: 5px; margin: 5px 0; cursor: pointer;">
-                                📋 클립보드에 복사
-                            </button>
-                            
-                            <button onclick="scanner.downloadCSV('${csvContent.replace(/'/g, "\\'")}', this)" 
-                                    style="width: 100%; padding: 12px; background: #2196F3; color: white; border: none; border-radius: 5px; margin: 5px 0; cursor: pointer;">
-                                💾 파일 다운로드
-                            </button>
-                            
-                            <button onclick="scanner.shareData('${csvContent.replace(/'/g, "\\'")}', this)" 
-                                    style="width: 100%; padding: 12px; background: #FF9800; color: white; border: none; border-radius: 5px; margin: 5px 0; cursor: pointer;">
-                                📤 공유하기
-                            </button>
+                // --- 개선점 2: 모바일 환경 안내 문구 추가 ---
+                const modalHTML = `
+                    <div class="modal-overlay" id="exportModal">
+                        <div class="modal-content">
+                            <h3>📊 데이터 내보내기</h3>
+                            <p style='font-size: 12px; color: #666; text-align: center; margin-bottom: 15px;'>💡 스마트폰에서는 '공유하기' 또는 '클립보드 복사'를 사용하면 편리합니다.</p>
+                            <div style="margin-bottom: 15px;">
+                                <button id="copyBtn" class="btn btn-primary">📋 클립보드에 복사</button>
+                                <button id="downloadBtn" class="btn btn-secondary">💾 파일 다운로드</button>
+                                <button id="shareBtn" class="btn" style="background: #FF9800; color: white;">📤 공유하기</button>
+                            </div>
+                            <div>
+                                <label style="display: block; margin-bottom: 5px; font-weight: bold;">📄 CSV 데이터 미리보기:</label>
+                                <textarea readonly style="width: 100%; height: 200px; padding: 10px; border: 1px solid #ddd; border-radius: 5px; font-family: monospace; font-size: 12px; resize: none;">${csvContent}</textarea>
+                            </div>
+                            <div class="modal-buttons">
+                                <button id="closeExportModalBtn" class="btn btn-danger" style="width: 100%;">❌ 닫기</button>
+                            </div>
                         </div>
-                        
-                        <div style="margin-bottom: 15px;">
-                            <label style="display: block; margin-bottom: 5px; font-weight: bold;">📄 CSV 데이터 미리보기:</label>
-                            <textarea id="csvPreview" readonly style="
-                                width: 100%;
-                                height: 200px;
-                                padding: 10px;
-                                border: 1px solid #ddd;
-                                border-radius: 5px;
-                                font-family: monospace;
-                                font-size: 12px;
-                                resize: none;
-                            ">${csvContent}</textarea>
-                        </div>
-                        
-                        <button onclick="scanner.closeExportModal()" 
-                                style="padding: 10px; background: #f44336; color: white; border: none; border-radius: 5px; cursor: pointer;">
-                            ❌ 닫기
-                        </button>
                     </div>
                 `;
-                
-                document.body.appendChild(modal);
-                
-                // 모달 외부 클릭시 닫기
-                modal.addEventListener('click', (e) => {
-                    if (e.target === modal) {
-                        this.closeExportModal();
-                    }
+                document.body.insertAdjacentHTML('beforeend', modalHTML);
+
+                document.getElementById('copyBtn').addEventListener('click', (e) => this.copyToClipboard(csvContent, e.target));
+                document.getElementById('downloadBtn').addEventListener('click', (e) => this.downloadCSV(csvContent, e.target));
+                document.getElementById('shareBtn').addEventListener('click', (e) => this.shareData(csvContent, e.target));
+                document.getElementById('closeExportModalBtn').addEventListener('click', () => this.closeModal('exportModal'));
+                document.getElementById('exportModal').addEventListener('click', (e) => {
+                    if (e.target.id === 'exportModal') this.closeModal('exportModal');
                 });
+            }
+
+            showClearConfirmModal() {
+                const modalHTML = `
+                    <div class="modal-overlay" id="clearConfirmModal">
+                        <div class="modal-content">
+                            <h3>🗑️ 데이터 삭제 확인</h3>
+                            <p>정말로 모든 스캔 데이터를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.</p>
+                            <div class="modal-buttons">
+                                <button id="confirmClearBtn" class="btn btn-danger">삭제</button>
+                                <button id="cancelClearBtn" class="btn btn-secondary">취소</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                document.body.insertAdjacentHTML('beforeend', modalHTML);
+
+                document.getElementById('confirmClearBtn').addEventListener('click', () => {
+                    this.clearData();
+                    this.closeModal('clearConfirmModal');
+                });
+                document.getElementById('cancelClearBtn').addEventListener('click', () => this.closeModal('clearConfirmModal'));
+                document.getElementById('clearConfirmModal').addEventListener('click', (e) => {
+                    if (e.target.id === 'clearConfirmModal') this.closeModal('clearConfirmModal');
+                });
+            }
+
+            closeModal(modalId) {
+                const modal = document.getElementById(modalId);
+                if (modal) modal.remove();
             }
             
             async copyToClipboard(csvContent, button) {
                 try {
-                    if (navigator.clipboard) {
-                        await navigator.clipboard.writeText(csvContent);
-                        this.showTemporarySuccess(button, '✅ 복사됨!');
-                        this.showSuccess('📋 클립보드에 복사되었습니다');
-                    } else {
-                        // 구형 브라우저 대안
-                        const textArea = document.getElementById('csvPreview');
-                        textArea.select();
-                        textArea.setSelectionRange(0, 99999);
-                        document.execCommand('copy');
-                        this.showTemporarySuccess(button, '✅ 복사됨!');
-                        this.showSuccess('📋 클립보드에 복사되었습니다');
-                    }
+                    await navigator.clipboard.writeText(csvContent);
+                    this.showTemporarySuccess(button, '✅ 복사됨!');
+                    this.showSuccess('📋 클립보드에 복사되었습니다');
                 } catch (error) {
-                    this.showError('클립보드 복사 실패. 텍스트를 수동으로 선택해서 복사해주세요.');
+                    this.showError('클립보드 복사 실패. 수동으로 복사해주세요.');
                 }
             }
             
@@ -628,16 +414,12 @@
                     const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
                     const url = URL.createObjectURL(blob);
                     const link = document.createElement('a');
-                    
                     link.href = url;
                     link.download = `장서점검_${new Date().toISOString().slice(0,10)}.csv`;
-                    link.style.display = 'none';
-                    
                     document.body.appendChild(link);
                     link.click();
                     document.body.removeChild(link);
                     URL.revokeObjectURL(url);
-                    
                     this.showTemporarySuccess(button, '✅ 다운로드!');
                     this.showSuccess(`💾 ${this.scanHistory.length}개 항목이 다운로드되었습니다`);
                 } catch (error) {
@@ -645,137 +427,105 @@
                 }
             }
             
-            shareData(csvContent, button) {
-                if (navigator.share) {
-                    const fileName = `장서점검_${new Date().toISOString().slice(0,10)}.csv`;
-                    navigator.share({
+            async shareData(csvContent, button) {
+                if (!navigator.share) {
+                    this.showError('공유 기능을 지원하지 않는 브라우저입니다.');
+                    return;
+                }
+                const fileName = `장서점검_${new Date().toISOString().slice(0,10)}.csv`;
+                const file = new File(['\uFEFF' + csvContent], fileName, { type: 'text/csv' });
+                try {
+                    await navigator.share({
                         title: '📚 도서관 장서점검 결과',
-                        text: `장서점검 결과 (${this.scanHistory.length}개 항목)\n\n${csvContent}`,
-                        files: [new File(['\uFEFF' + csvContent], fileName, { type: 'text/csv' })]
-                    }).then(() => {
-                        this.showTemporarySuccess(button, '✅ 공유됨!');
-                    }).catch(() => {
-                        // 파일 공유 실패시 텍스트만 공유
-                        navigator.share({
-                            title: '📚 도서관 장서점검 결과',
-                            text: `장서점검 결과 (${this.scanHistory.length}개 항목)\n\n${csvContent.substring(0, 1000)}...`
-                        }).then(() => {
-                            this.showTemporarySuccess(button, '✅ 공유됨!');
-                        }).catch(() => {
-                            this.showError('공유 기능을 사용할 수 없습니다. 클립보드 복사를 이용해주세요.');
-                        });
+                        text: `장서점검 결과 (${this.scanHistory.length}개 항목)`,
+                        files: [file]
                     });
-                } else {
-                    this.showError('공유 기능을 지원하지 않는 브라우저입니다. 클립보드 복사를 이용해주세요.');
+                    this.showTemporarySuccess(button, '✅ 공유됨!');
+                } catch (error) {
+                    this.showError('공유에 실패했습니다. 클립보드 복사를 이용해주세요.');
                 }
             }
             
             showTemporarySuccess(button, message) {
                 const originalText = button.textContent;
+                const originalBg = button.style.backgroundColor;
                 button.textContent = message;
                 button.style.background = '#4CAF50';
+                button.disabled = true;
                 setTimeout(() => {
                     button.textContent = originalText;
-                    button.style.background = '';
+                    button.style.background = originalBg;
+                    button.disabled = false;
                 }, 2000);
             }
             
-            closeExportModal() {
-                const modal = document.getElementById('exportModal');
-                if (modal) {
-                    modal.remove();
-                }
-            }
-            
             clearData() {
-                if (confirm('🗑️ 모든 스캔 데이터를 삭제하시겠습니까?')) {
-                    this.scannedCodes.clear();
-                    this.scanHistory = [];
-                    this.updateScanList();
-                    this.updateStats();
-                    this.showSuccess('🗑️ 모든 데이터가 삭제되었습니다');
-                }
-            }
-            
-            playSuccessSound() {
-                if (this.soundSetting.checked) {
-                    this.playBeep(800, 100);
-                }
-            }
-            
-            playErrorSound() {
-                if (this.soundSetting.checked) {
-                    this.playBeep(400, 200);
-                }
+                this.scannedCodes.clear();
+                this.scanHistory = [];
+                this.updateScanList();
+                this.updateStats();
+                this.showSuccess('🗑️ 모든 데이터가 삭제되었습니다');
             }
             
             playBeep(frequency, duration) {
-                if (typeof(AudioContext) !== "undefined" || typeof(webkitAudioContext) !== "undefined") {
+                if (!this.soundSetting.checked) return;
+                try {
                     const context = new (window.AudioContext || window.webkitAudioContext)();
                     const oscillator = context.createOscillator();
                     const gainNode = context.createGain();
-                    
                     oscillator.connect(gainNode);
                     gainNode.connect(context.destination);
-                    
                     oscillator.frequency.value = frequency;
                     gainNode.gain.setValueAtTime(0.3, context.currentTime);
                     gainNode.gain.exponentialRampToValueAtTime(0.01, context.currentTime + duration / 1000);
-                    
                     oscillator.start(context.currentTime);
                     oscillator.stop(context.currentTime + duration / 1000);
+                } catch (e) {
+                    console.error("AudioContext를 지원하지 않는 환경입니다.", e);
                 }
             }
-            
-            showError(message) {
-                this.errorMsg.textContent = message;
-                this.errorMsg.style.display = 'block';
-                this.successMsg.style.display = 'none';
-                setTimeout(() => this.hideMessages(), 3000);
-            }
-            
-            showSuccess(message) {
-                this.successMsg.textContent = message;
-                this.successMsg.style.display = 'block';
-                this.errorMsg.style.display = 'none';
-                setTimeout(() => this.hideMessages(), 2000);
-            }
-            
-            showInfo(message) {
-                // 정보성 메시지 표시 (파란색 배경)
-                this.successMsg.textContent = message;
-                this.successMsg.style.display = 'block';
-                this.successMsg.style.background = '#e3f2fd';
-                this.successMsg.style.color = '#1565c0';
-                this.errorMsg.style.display = 'none';
+            playSuccessSound() { this.playBeep(800, 100); }
+            playErrorSound() { this.playBeep(400, 200); }
+
+            showError(message) { this.showMessage(this.errorMsg, message, 3000); }
+            showSuccess(message) { this.showMessage(this.successMsg, message, 2000); }
+            showInfo(message) { this.showMessage(this.successMsg, message, 4000, '#e3f2fd', '#1565c0'); }
+
+            showMessage(element, message, duration, bg = null, color = null) {
+                const originalBg = element.style.background;
+                const originalColor = element.style.color;
+                
+                element.textContent = message;
+                if(bg) element.style.background = bg;
+                if(color) element.style.color = color;
+
+                element.style.display = 'block';
+                (element === this.errorMsg ? this.successMsg : this.errorMsg).style.display = 'none';
+                
                 setTimeout(() => {
-                    this.hideMessages();
-                    // 스타일 복원
-                    this.successMsg.style.background = '#e8f5e8';
-                    this.successMsg.style.color = '#2e7d32';
-                }, 4000);
+                    element.style.display = 'none';
+                    if(bg) element.style.background = originalBg;
+                    if(color) element.style.color = originalColor;
+                }, duration);
             }
             
             hideMessages() {
                 this.errorMsg.style.display = 'none';
                 this.successMsg.style.display = 'none';
             }
+
+            toggleSettings() {
+                const panel = this.settingsPanel;
+                panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+            }
         }
-        
-        function toggleSettings() {
-            const panel = document.getElementById('settingsPanel');
-            panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
-        }
-        
-        // 앱 초기화
-        let scanner;
         
         window.addEventListener('load', () => {
-            scanner = new LibraryBarcodeScanner();
-            scanner.updateStats(); // 초기 통계 표시
+            const scanner = new LibraryBarcodeScanner();
+            scanner.updateStats();
         });
         
-        // PWA 지원을 위한 서비스 워커 등록
+        /*
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('/sw.js')
@@ -787,6 +537,7 @@
                     });
             });
         }
+        */
     </script>
 </body>
 </html>
