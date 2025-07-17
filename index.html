@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>📚 도서관 장서점검 스캐너 v1.1</title>
+    <title>📚 도서관 장서점검 스캐너 v1.4</title>
     <script src="https://unpkg.com/@zxing/library@latest/umd/index.min.js"></script>
     <style>
         /* --- 기본 스타일 (변경 없음) --- */
@@ -15,7 +15,7 @@
             padding: 10px;
         }
         .container { max-width: 500px; margin: 20px auto; background: white; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); overflow: hidden; }
-        .header { background: linear-gradient(135deg, #4CAF50, #45a049); color: white; padding: 20px; text-align: center; }
+        .header { background: linear-gradient(135deg, #4CAF50, #45a049); color: white; padding: 20px; text-align: center; position: relative; }
         .header h1 { font-size: 1.5em; margin-bottom: 5px; }
         .scanner-area { position: relative; padding: 20px; }
         #video { width: 100%; max-width: 100%; border-radius: 10px; border: 3px solid #4CAF50; background: #333; }
@@ -35,7 +35,7 @@
         .scan-item { background: #f9f9f9; padding: 10px; margin: 5px 0; border-radius: 5px; border-left: 4px solid #4CAF50; font-family: monospace; font-size: 14px; }
         .scan-time { color: #666; font-size: 12px; }
         .settings { padding: 20px; border-top: 1px solid #ddd; background: #fafafa; }
-        .setting-item { margin: 10px 0; }
+        .setting-item { margin: 15px 0; }
         .setting-item label { display: block; margin-bottom: 5px; font-weight: bold; }
         .setting-item input { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
         .message-box { padding: 10px; border-radius: 5px; margin: 10px 20px; display: none; }
@@ -43,7 +43,7 @@
         .success-message { background: #e8f5e8; color: #2e7d32; }
         .toggle-btn { background: none; border: none; color: #2196F3; cursor: pointer; text-decoration: underline; margin: 10px 0; padding: 5px; display: block; margin-left: auto; margin-right: auto;}
 
-        /* --- 모달 스타일 추가 --- */
+        /* --- 모달 스타일 --- */
         .modal-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.7); z-index: 1000;
@@ -57,12 +57,37 @@
         }
         .modal-content h3 { margin: 0 0 10px 0; text-align: center; }
         .modal-buttons { display: flex; gap: 10px; margin-top: 20px; }
+
+        /* --- [추가] 상태 표시등 스타일 --- */
+        .indicator-light {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background-color: #555; /* 기본 회색빛 */
+            border: 2px solid #fff;
+            box-shadow: 0 0 5px rgba(0,0,0,0.3);
+            transition: all 0.3s ease;
+            position: absolute;
+            top: 50%;
+            right: 20px;
+            transform: translateY(-50%);
+        }
+        .light-green {
+            background-color: #28a745;
+            box-shadow: 0 0 15px #28a745;
+        }
+        .light-red {
+            background-color: #dc3545;
+            box-shadow: 0 0 15px #dc3545;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>📚 도서관 장서점검 v1.1</h1>
+            <!-- [추가] 상태 표시등 UI -->
+            <div id="scanIndicator" class="indicator-light"></div>
+            <h1>📚 도서관 장서점검 v1.4</h1>
             <p>바코드 스캐너</p>
         </div>
         
@@ -88,7 +113,7 @@
             </div>
             <div class="stat-item">
                 <div class="stat-value" id="validCount">0</div>
-                <div class="stat-label">✅ 유효</div>
+                <div class.stat-label">✅ 유효</div>
             </div>
             <div class="stat-item">
                 <div class="stat-value" id="duplicateCount">0</div>
@@ -116,6 +141,12 @@
                     활성화시 스캔 빈도를 줄여 발열과 배터리 소모를 방지합니다.
                 </small>
             </div>
+            <!-- [추가] 온도 관련 안내 문구 -->
+            <div class="setting-item" style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #eee;">
+                 <small style="color: #666; display: block;">
+                    <b>참고:</b> 웹 브라우저 보안 정책상 기기의 온도를 직접 측정할 수 없습니다. 장시간 사용으로 기기가 뜨거워지면, 과열 방지를 위해 잠시 사용을 중단해주세요.
+                </small>
+            </div>
         </div>
         
         <div class="scan-list" id="scanList">
@@ -132,7 +163,7 @@
                 this.codeReader = null;
                 this.lastScannedCode = '';
                 this.lastScanTime = 0;
-                this.scanCooldown = 2000; // 같은 바코드 재스캔 방지 (2초)
+                this.scanCooldown = 2000;
                 
                 this.initializeElements();
                 this.initializeEventListeners();
@@ -157,6 +188,8 @@
                 this.minLengthSetting = document.getElementById('minLengthSetting');
                 this.soundSetting = document.getElementById('soundSetting');
                 this.batterySavingSetting = document.getElementById('batterySavingSetting');
+                // [추가] 상태 표시등 엘리먼트
+                this.scanIndicator = document.getElementById('scanIndicator');
             }
             
             initializeEventListeners() {
@@ -187,8 +220,6 @@
                     this.startBtn.style.display = 'none';
                     this.stopBtn.style.display = 'block';
 
-                    // --- 개선점 1: 스캔 안정성을 위해 decodeFromConstraints 사용 ---
-                    // 표준 HD 해상도를 요청하여 가로/세로 모드에서 일관된 비디오 스트림을 얻습니다.
                     const constraints = {
                         video: {
                             facingMode: 'environment',
@@ -202,20 +233,23 @@
                             this.processBarcodeResult(result.text);
                         }
                         if (err && !(err instanceof ZXing.NotFoundException)) {
-                            console.error('스캔 오류:', err);
+                            console.error('스캔 중 예상치 못한 오류 발생:', err);
                         }
                     });
 
                     this.showSuccess('📷 스캔이 시작되었습니다!');
                     this.activatePowerSavingMode();
+
                 } catch (error) {
-                    console.error('카메라 시작 오류:', error);
+                    console.error('카메라 시작 중 오류 발생:', error);
+                    let userMessage = '카메라를 시작할 수 없습니다: ' + error.name;
                     if (error.name === 'NotAllowedError') {
-                        this.showError('카메라 접근 권한이 필요합니다. 브라우저 설정을 확인해주세요.');
-                    } else {
-                        this.showError('카메라를 시작할 수 없습니다: ' + error.message);
+                        userMessage = '카메라 접근 권한이 필요합니다. 브라우저 설정에서 권한을 허용해주세요.';
+                    } else if (error.name === 'NotFoundError' || error.name === 'OverconstrainedError') {
+                        userMessage = '사용 가능한 후면 카메라를 찾거나 요청한 해상도를 지원할 수 없습니다.';
                     }
-                    this.stopScanning(); // UI를 원래 상태로 되돌립니다.
+                    this.showError(userMessage);
+                    this.stopScanning();
                 }
             }
             
@@ -261,6 +295,7 @@
 
             handleInvalidScan(reason, barcode, isDuplicate = false) {
                 this.playErrorSound();
+                this.flashIndicator('red'); // 빨간색 라이트 표시
                 this.showError(`❌ ${reason}: ${barcode}`);
                 if (isDuplicate) {
                     this.updateStats(true);
@@ -277,6 +312,7 @@
                 });
                 
                 this.playSuccessSound();
+                this.flashIndicator('green'); // 녹색 라이트 표시
                 this.updateScanList();
                 this.updateStats();
                 this.showSuccess(`✅ 스캔 완료: ${barcode}`);
@@ -289,8 +325,9 @@
                 }
                 this.startBtn.style.display = 'block';
                 this.stopBtn.style.display = 'none';
-                this.video.srcObject = null; // 비디오 스트림 정리
-                this.showSuccess('⏹️ 스캔이 중지되었습니다');
+                if(!this.errorMsg.style.display || this.errorMsg.style.display === 'none') {
+                    this.showSuccess('⏹️ 스캔이 중지되었습니다');
+                }
             }
             
             updateScanList() {
@@ -337,7 +374,6 @@
             }
             
             showExportModal(csvContent) {
-                // --- 개선점 2: 모바일 환경 안내 문구 추가 ---
                 const modalHTML = `
                     <div class="modal-overlay" id="exportModal">
                         <div class="modal-content">
@@ -414,12 +450,23 @@
                     const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
                     const url = URL.createObjectURL(blob);
                     const link = document.createElement('a');
+                    
+                    const now = new Date();
+                    const year = now.getFullYear().toString().slice(-2);
+                    const month = (now.getMonth() + 1).toString().padStart(2, '0');
+                    const day = now.getDate().toString().padStart(2, '0');
+                    const hours = now.getHours().toString().padStart(2, '0');
+                    const minutes = now.getMinutes().toString().padStart(2, '0');
+                    const count = this.scanHistory.length.toString().padStart(3, '0');
+
                     link.href = url;
-                    link.download = `장서점검_${new Date().toISOString().slice(0,10)}.csv`;
+                    link.download = `${year}${month}${day}_${hours}${minutes}_${count}.csv`;
+                    
                     document.body.appendChild(link);
                     link.click();
                     document.body.removeChild(link);
                     URL.revokeObjectURL(url);
+                    
                     this.showTemporarySuccess(button, '✅ 다운로드!');
                     this.showSuccess(`💾 ${this.scanHistory.length}개 항목이 다운로드되었습니다`);
                 } catch (error) {
@@ -484,8 +531,19 @@
                     console.error("AudioContext를 지원하지 않는 환경입니다.", e);
                 }
             }
-            playSuccessSound() { this.playBeep(800, 100); }
-            playErrorSound() { this.playBeep(400, 200); }
+            // [개선] 소리 차별화: 성공(높고 짧게), 실패(낮고 길게)
+            playSuccessSound() { this.playBeep(960, 150); }
+            playErrorSound() { this.playBeep(320, 300); }
+
+            // [추가] 상태 표시등 점멸 기능
+            flashIndicator(color) {
+                if (!this.scanIndicator) return;
+                const className = color === 'green' ? 'light-green' : 'light-red';
+                this.scanIndicator.classList.add(className);
+                setTimeout(() => {
+                    this.scanIndicator.classList.remove(className);
+                }, 1000); // 1초 동안 점등
+            }
 
             showError(message) { this.showMessage(this.errorMsg, message, 3000); }
             showSuccess(message) { this.showMessage(this.successMsg, message, 2000); }
