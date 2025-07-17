@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>📚 도서관 장서점검 스캐너 v2.7</title>
+    <title>📚 도서관 장서점검 스캐너 v2.8</title>
     <!-- 라이브러리 버전을 특정하여 안정성 확보 -->
     <script src="https://unpkg.com/@zxing/library@0.21.0/umd/index.min.js"></script>
     <style>
@@ -53,16 +53,14 @@
         .light-green { background-color: #28a745; box-shadow: 0 0 15px #28a745; }
         .light-red { background-color: #dc3545; box-shadow: 0 0 15px #dc3545; }
 
-        /* --- [핵심 수정] 그리드 및 기준선 90도 회전 --- */
         .grid-overlay {
             position: absolute;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            /* 가로/세로 비율을 변경하여 세로로 길게 만듭니다. */
             width: 40%;
             height: 80%;
-            max-width: 200px; /* 너무 넓어지지 않도록 최대 너비 설정 */
+            max-width: 200px;
             border: 2px solid rgba(255, 255, 255, 0.7);
             border-radius: 10px;
             box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
@@ -72,14 +70,13 @@
         .grid-overlay::after {
             content: '';
             position: absolute;
-            /* 가로선을 세로선으로 변경합니다. */
-            top: 0;
-            left: 50%;
-            width: 2px;
-            height: 100%;
+            top: 50%;
+            left: 0;
+            width: 100%;
+            height: 2px;
             background: red;
             box-shadow: 0 0 5px red;
-            transform: translateX(-50%);
+            transform: translateY(-50%);
         }
     </style>
 </head>
@@ -87,7 +84,7 @@
     <div class="container">
         <div class="header">
             <div id="scanIndicator" class="indicator-light"></div>
-            <h1>📚 도서관 장서점검 v2.7</h1>
+            <h1>📚 도서관 장서점검 v2.8</h1>
             <p>바코드 스캐너</p>
         </div>
         
@@ -442,14 +439,17 @@
                     const url = URL.createObjectURL(blob);
                     const link = document.createElement('a');
                     
+                    // [핵심 수정] 파일명을 "날짜_시간분_일련번호" 형식으로 변경
                     const now = new Date();
+                    const year = now.getFullYear().toString().slice(-2);
+                    const month = (now.getMonth() + 1).toString().padStart(2, '0');
+                    const day = now.getDate().toString().padStart(2, '0');
                     const hours = now.getHours().toString().padStart(2, '0');
                     const minutes = now.getMinutes().toString().padStart(2, '0');
-                    const seconds = now.getSeconds().toString().padStart(2, '0');
                     const count = this.scanHistory.length.toString().padStart(3, '0');
 
                     link.href = url;
-                    link.download = `${hours}${minutes}${seconds}_${count}.csv`;
+                    link.download = `${year}${month}${day}_${hours}${minutes}_${count}.csv`;
                     
                     document.body.appendChild(link);
                     link.click();
