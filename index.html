@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>📚 도서관 장서점검 스캐너</title>
+    <title>📚 도서관 장서점검 스캐너 V1.0</title>
     <script src="https://unpkg.com/@zxing/library@latest/umd/index.min.js"></script>
     <style>
         * {
@@ -50,16 +50,6 @@
             max-width: 100%;
             border-radius: 10px;
             border: 3px solid #4CAF50;
-        }
-        
-        .rotation-hint {
-            animation: fadeInOut 2s ease-in-out;
-        }
-        
-        @keyframes fadeInOut {
-            0% { opacity: 0; transform: translateX(-50%) translateY(10px); }
-            50% { opacity: 1; transform: translateX(-50%) translateY(0); }
-            100% { opacity: 0; transform: translateX(-50%) translateY(-10px); }
         }
         
         .controls {
@@ -210,20 +200,6 @@
         <div class="scanner-area">
             <video id="video" autoplay muted playsinline></video>
             <canvas id="canvas" style="display: none;"></canvas>
-            <div class="rotation-hint" style="
-                position: absolute;
-                bottom: 10px;
-                left: 50%;
-                transform: translateX(-50%);
-                background: rgba(0,0,0,0.7);
-                color: white;
-                padding: 5px 10px;
-                border-radius: 15px;
-                font-size: 12px;
-                display: none;
-            " id="rotationHint">
-                🔄 모든 각도에서 스캔 가능합니다
-            </div>
         </div>
         
         <div class="controls">
@@ -265,6 +241,13 @@
                 <label>🔊 알림음 활성화:</label>
                 <input type="checkbox" id="soundSetting" checked>
             </div>
+            <div class="setting-item">
+                <label>🔋 배터리 절약 모드:</label>
+                <input type="checkbox" id="batterySavingSetting" checked>
+                <small style="color: #666; display: block; margin-top: 5px;">
+                    활성화시 스캔 빈도를 줄여 발열과 배터리 소모를 방지합니다.
+                </small>
+            </div>
         </div>
         
         <div class="scan-list" id="scanList">
@@ -283,7 +266,7 @@
                 this.stream = null;
                 this.lastScannedCode = '';
                 this.lastScanTime = 0;
-                this.scanCooldown = 1000; // 같은 바코드 재스캔 방지 (1초)
+                this.scanCooldown = 2000; // 같은 바코드 재스캔 방지 (2초로 연장하여 발열 방지)
                 
                 this.initializeElements();
                 this.initializeEventListeners();
@@ -305,6 +288,7 @@
                 this.prefixSetting = document.getElementById('prefixSetting');
                 this.minLengthSetting = document.getElementById('minLengthSetting');
                 this.soundSetting = document.getElementById('soundSetting');
+                this.batterySavingSetting = document.getElementById('batterySavingSetting');
             }
             
             initializeEventListeners() {
@@ -315,40 +299,32 @@
             }
             
             initializeCodeReader() {
-                // 다양한 각도의 바코드 인식을 위한 설정
+                // 효율적인 바코드 인식을 위한 최적화된 설정
                 const hints = new Map();
                 
-                // 더 정확한 스캔을 위한 설정
+                // 더 정확한 스캔을 위한 설정 (적당한 수준으로 조정)
                 hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
                 
-                // 다양한 바코드 포맷 지원
+                // 도서관에서 주로 사용하는 바코드 포맷만 선택 (성능 최적화)
                 hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [
                     ZXing.BarcodeFormat.CODE_128,
                     ZXing.BarcodeFormat.CODE_39,
-                    ZXing.BarcodeFormat.CODE_93,
-                    ZXing.BarcodeFormat.CODABAR,
                     ZXing.BarcodeFormat.EAN_13,
-                    ZXing.BarcodeFormat.EAN_8,
-                    ZXing.BarcodeFormat.ITF,
-                    ZXing.BarcodeFormat.UPC_A,
-                    ZXing.BarcodeFormat.UPC_E,
-                    ZXing.BarcodeFormat.RSS_14,
-                    ZXing.BarcodeFormat.RSS_EXPANDED
+                    ZXing.BarcodeFormat.EAN_8
                 ]);
                 
-                // 회전된 바코드도 인식하도록 설정
+                // 회전된 바코드도 인식하도록 설정 (ZXing 내장 기능 활용)
                 hints.set(ZXing.DecodeHintType.ALSO_INVERTED, true);
                 
                 this.codeReader = new ZXing.BrowserMultiFormatReader(hints);
                 
-                // 카메라 해상도 설정 (높은 해상도로 더 정확한 인식)
+                // 배터리 효율을 위한 적정 해상도 설정
                 this.cameraConstraints = {
                     video: {
                         facingMode: 'environment',
-                        width: { ideal: 1920, min: 640 },
-                        height: { ideal: 1080, min: 480 },
-                        focusMode: 'continuous',
-                        whiteBalanceMode: 'continuous'
+                        width: { ideal: 1280, max: 1280 },
+                        height: { ideal: 720, max: 720 },
+                        frameRate: { ideal: 15, max: 30 } // 프레임레이트 제한으로 발열 방지
                     }
                 };
             }
@@ -366,35 +342,10 @@
                     this.startBtn.style.display = 'none';
                     this.stopBtn.style.display = 'block';
                     
-                    // 카메라 권한 및 스트림 설정
-                    try {
-                        const stream = await navigator.mediaDevices.getUserMedia(this.cameraConstraints);
-                        this.video.srcObject = stream;
-                        this.stream = stream;
-                        
-                        // 비디오가 준비될 때까지 대기
-                        await new Promise((resolve) => {
-                            this.video.onloadedmetadata = resolve;
-                        });
-                        
-                    } catch (error) {
-                        // 고해상도 실패시 기본 설정으로 재시도
-                        const fallbackConstraints = {
-                            video: { 
-                                facingMode: 'environment',
-                                width: { ideal: 1280 },
-                                height: { ideal: 720 }
-                            }
-                        };
-                        const stream = await navigator.mediaDevices.getUserMedia(fallbackConstraints);
-                        this.video.srcObject = stream;
-                        this.stream = stream;
-                    }
+                    // 최적화된 스캔 시작 (발열 방지)
+                    this.startOptimizedScanning();
                     
-                    // 향상된 연속 스캔 시작
-                    this.startAdvancedScanning();
-                    
-                    this.showSuccess('📷 스캔이 시작되었습니다! (모든 각도 지원)');
+                    this.showSuccess('📷 스캔이 시작되었습니다! (저전력 모드)');
                     
                 } catch (error) {
                     this.showError('카메라 접근 실패: ' + error.message);
@@ -402,123 +353,33 @@
                 }
             }
             
-            startAdvancedScanning() {
-                if (!this.isScanning) return;
-                
-                // 캔버스를 사용한 향상된 바코드 인식
-                const canvas = document.getElementById('canvas');
-                const context = canvas.getContext('2d');
-                
-                const scanFrame = () => {
-                    if (!this.isScanning) return;
-                    
-                    try {
-                        // 비디오 프레임을 캔버스에 그리기
-                        canvas.width = this.video.videoWidth;
-                        canvas.height = this.video.videoHeight;
-                        context.drawImage(this.video, 0, 0, canvas.width, canvas.height);
-                        
-                        // 이미지 데이터 가져오기
-                        const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-                        
-                        // 바코드 스캔 시도 (회전 지원)
-                        this.tryDecodeFromImageData(imageData)
-                            .then(result => {
-                                if (result) {
-                                    this.processBarcodeResult(result.text);
-                                }
-                            })
-                            .catch(() => {
-                                // 에러는 정상 (바코드가 없는 프레임)
-                            });
-                        
-                    } catch (error) {
-                        // 스캔 에러 무시
+            startOptimizedScanning() {
+                // ZXing 라이브러리의 최적화된 스캔 방식 사용
+                this.codeReader.decodeFromVideoDevice(null, 'video', (result, err) => {
+                    if (result && this.isScanning) {
+                        this.processBarcodeResult(result.text);
                     }
-                    
-                    // 다음 프레임 스캔 (60fps 기준)
+                    // 에러는 바코드가 감지되지 않는 정상적인 상황이므로 무시
+                });
+                
+                // 추가 배터리 절약을 위한 저전력 모드 활성화
+                this.activatePowerSavingMode();
+            }
+            
+            activatePowerSavingMode() {
+                // 화면 밝기 조절 권장 알림
+                if (this.scanHistory.length === 0) {
+                    setTimeout(() => {
+                        this.showInfo('💡 배터리 절약 팁: 화면 밝기를 조절하세요');
+                    }, 3000);
+                }
+                
+                // 10분 후 자동 일시정지 제안
+                setTimeout(() => {
                     if (this.isScanning) {
-                        requestAnimationFrame(scanFrame);
+                        this.showInfo('🔋 장시간 사용 감지. 배터리 절약을 위해 잠시 휴식을 권장합니다.');
                     }
-                };
-                
-                // 스캔 시작
-                requestAnimationFrame(scanFrame);
-            }
-            
-            async tryDecodeFromImageData(imageData) {
-                try {
-                    // 원본 이미지에서 스캔 시도
-                    const result = await this.codeReader.decodeFromImageData(imageData);
-                    if (result) return result;
-                    
-                } catch (error) {
-                    // 원본 실패시 회전된 이미지들로 시도
-                    try {
-                        // 90도 회전
-                        const rotated90 = this.rotateImageData(imageData, 90);
-                        const result90 = await this.codeReader.decodeFromImageData(rotated90);
-                        if (result90) return result90;
-                        
-                        // 180도 회전
-                        const rotated180 = this.rotateImageData(imageData, 180);
-                        const result180 = await this.codeReader.decodeFromImageData(rotated180);
-                        if (result180) return result180;
-                        
-                        // 270도 회전
-                        const rotated270 = this.rotateImageData(imageData, 270);
-                        const result270 = await this.codeReader.decodeFromImageData(rotated270);
-                        if (result270) return result270;
-                        
-                    } catch (rotationError) {
-                        // 회전 스캔도 실패
-                    }
-                }
-                
-                return null;
-            }
-            
-            rotateImageData(imageData, degrees) {
-                const canvas = document.createElement('canvas');
-                const ctx = canvas.getContext('2d');
-                
-                const { width, height } = imageData;
-                
-                if (degrees === 90 || degrees === 270) {
-                    canvas.width = height;
-                    canvas.height = width;
-                } else {
-                    canvas.width = width;
-                    canvas.height = height;
-                }
-                
-                // 회전 변환 적용
-                ctx.save();
-                
-                if (degrees === 90) {
-                    ctx.translate(height, 0);
-                    ctx.rotate(Math.PI / 2);
-                } else if (degrees === 180) {
-                    ctx.translate(width, height);
-                    ctx.rotate(Math.PI);
-                } else if (degrees === 270) {
-                    ctx.translate(0, width);
-                    ctx.rotate(-Math.PI / 2);
-                }
-                
-                // 임시 캔버스에 원본 이미지 그리기
-                const tempCanvas = document.createElement('canvas');
-                const tempCtx = tempCanvas.getContext('2d');
-                tempCanvas.width = width;
-                tempCanvas.height = height;
-                tempCtx.putImageData(imageData, 0, 0);
-                
-                // 회전된 캔버스에 그리기
-                ctx.drawImage(tempCanvas, 0, 0);
-                ctx.restore();
-                
-                // 회전된 이미지 데이터 반환
-                return ctx.getImageData(0, 0, canvas.width, canvas.height);
+                }, 600000); // 10분
             }
             
             async scanContinuously() {
@@ -542,8 +403,11 @@
             processBarcodeResult(barcode) {
                 const now = Date.now();
                 
-                // 중복 스캔 방지 (같은 바코드를 너무 자주 스캔하지 않도록)
-                if (barcode === this.lastScannedCode && (now - this.lastScanTime) < this.scanCooldown) {
+                // 배터리 절약 모드에 따른 쿨다운 조정
+                const currentCooldown = this.batterySavingSetting.checked ? this.scanCooldown : 1000;
+                
+                // 중복 스캔 방지
+                if (barcode === this.lastScannedCode && (now - this.lastScanTime) < currentCooldown) {
                     return;
                 }
                 
@@ -598,19 +462,6 @@
                 this.updateScanList();
                 this.updateStats();
                 this.showSuccess(`✅ 스캔 완료: ${barcode}`);
-                
-                // 회전 힌트 표시
-                this.showRotationHint();
-            }
-            
-            showRotationHint() {
-                const hint = document.getElementById('rotationHint');
-                if (hint) {
-                    hint.style.display = 'block';
-                    setTimeout(() => {
-                        hint.style.display = 'none';
-                    }, 2000);
-                }
             }
             
             stopScanning() {
@@ -888,6 +739,21 @@
                 this.successMsg.style.display = 'block';
                 this.errorMsg.style.display = 'none';
                 setTimeout(() => this.hideMessages(), 2000);
+            }
+            
+            showInfo(message) {
+                // 정보성 메시지 표시 (파란색 배경)
+                this.successMsg.textContent = message;
+                this.successMsg.style.display = 'block';
+                this.successMsg.style.background = '#e3f2fd';
+                this.successMsg.style.color = '#1565c0';
+                this.errorMsg.style.display = 'none';
+                setTimeout(() => {
+                    this.hideMessages();
+                    // 스타일 복원
+                    this.successMsg.style.background = '#e8f5e8';
+                    this.successMsg.style.color = '#2e7d32';
+                }, 4000);
             }
             
             hideMessages() {
