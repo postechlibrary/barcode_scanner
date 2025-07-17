@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>📚 도서관 장서점검 스캐너 v1.8</title>
+    <title>📚 도서관 장서점검 스캐너 v1.9</title>
     <script src="https://unpkg.com/@zxing/library@latest/umd/index.min.js"></script>
     <style>
         /* --- 기본 스타일 (변경 없음) --- */
@@ -18,7 +18,7 @@
         .header { background: linear-gradient(135deg, #4CAF50, #45a049); color: white; padding: 20px; text-align: center; position: relative; }
         .header h1 { font-size: 1.5em; margin-bottom: 5px; }
         .scanner-area { position: relative; padding: 20px; }
-        #video { width: 100%; max-width: 100%; border-radius: 10px; border: 3px solid #4CAF50; background: #333; }
+        #video { width: 100%; border-radius: 10px; border: 3px solid #4CAF50; background: #333; }
         .controls { padding: 0 20px 20px; }
         .btn { width: 100%; padding: 12px; margin: 5px 0; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; transition: all 0.3s; }
         .btn-primary { background: #4CAF50; color: white; }
@@ -41,7 +41,7 @@
         .message-box { padding: 10px; border-radius: 5px; margin: 10px 20px; display: none; }
         .error-message { background: #ffebee; color: #c62828; }
         .success-message { background: #e8f5e8; color: #2e7d32; }
-        .toggle-btn { background: none; border: none; color: #2196F3; cursor: pointer; text-decoration: underline; margin: 10px 0; padding: 5px; display: block; margin-left: auto; margin-right: auto;}
+        .toggle-btn { background: none; border: none; color: #2196F3; cursor: pointer; text-decoration: underline; margin: 10px 0; padding: 5px; display: block; margin-left: auto; margin-right: auto; }
 
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 20px; }
         .modal-content { background: white; border-radius: 10px; padding: 20px; width: 100%; max-width: 500px; max-height: 90vh; overflow: hidden; display: flex; flex-direction: column; }
@@ -57,15 +57,12 @@
     <div class="container">
         <div class="header">
             <div id="scanIndicator" class="indicator-light"></div>
-            <h1>📚 도서관 장서점검 v1.8</h1>
+            <h1>📚 도서관 장서점검 v1.9</h1>
             <p>바코드 스캐너</p>
         </div>
-        
         <div class="scanner-area">
             <video id="video" autoplay muted playsinline></video>
-            <canvas id="canvas" style="display: none;"></canvas>
         </div>
-        
         <div class="controls">
             <button id="startBtn" class="btn btn-primary">📷 스캔 시작</button>
             <button id="stopBtn" class="btn btn-danger" style="display: none;">⏹️ 스캔 중지</button>
@@ -73,78 +70,37 @@
             <button id="clearBtn" class="btn btn-danger">🗑️ 목록 지우기</button>
             <button id="settingsToggleBtn" class="toggle-btn">⚙️ 설정</button>
         </div>
-        
         <div id="errorMsg" class="message-box error-message"></div>
         <div id="successMsg" class="message-box success-message"></div>
-        
         <div class="stats">
-            <div class="stat-item">
-                <div class="stat-value" id="totalCount">0</div>
-                <div class="stat-label">📊 총 스캔</div>
-            </div>
-            <div class="stat-item">
-                <div class="stat-value" id="validCount">0</div>
-                <div class="stat-label">✅ 유효</div>
-            </div>
-            <div class="stat-item">
-                <div class="stat-value" id="duplicateCount">0</div>
-                <div class="stat-label">🔄 중복</div>
-            </div>
+            <div class="stat-item"><div class="stat-value" id="totalCount">0</div><div class="stat-label">📊 총 스캔</div></div>
+            <div class="stat-item"><div class="stat-value" id="validCount">0</div><div class="stat-label">✅ 유효</div></div>
+            <div class="stat-item"><div class="stat-value" id="duplicateCount">0</div><div class="stat-label">🔄 중복</div></div>
         </div>
-        
         <div id="settingsPanel" class="settings" style="display: none;">
-            <div class="setting-item">
-                <label>📝 바코드 시작 문자 (유효성 검사):</label>
-                <input type="text" id="prefixSetting" value="M" placeholder="예: M, LIB, 20">
-            </div>
-            <div class="setting-item">
-                <label>🔢 최소 바코드 길이:</label>
-                <input type="number" id="minLengthSetting" value="8" min="1">
-            </div>
-            <div class="setting-item">
-                <label>🔊 알림음 활성화:</label>
-                <input type="checkbox" id="soundSetting" checked>
-            </div>
-            <div class="setting-item">
-                <label>🔋 배터리 절약 모드:</label>
-                <input type="checkbox" id="batterySavingSetting" checked>
-                <small style="color: #666; display: block; margin-top: 5px;">
-                    활성화시 스캔 빈도를 줄여 발열과 배터리 소모를 방지합니다.
-                </small>
-            </div>
-            <div class="setting-item" style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #eee;">
-                 <small style="color: #666; display: block;">
-                    <b>참고:</b> 웹 브라우저 보안 정책상 기기의 온도를 직접 측정할 수 없습니다. 장시간 사용으로 기기가 뜨거워지면, 과열 방지를 위해 잠시 사용을 중단해주세요.
-                </small>
-            </div>
+            <div class="setting-item"><label>📝 바코드 시작 문자 (유효성 검사):</label><input type="text" id="prefixSetting" value="M" placeholder="예: M, LIB, 20"></div>
+            <div class="setting-item"><label>🔢 최소 바코드 길이:</label><input type="number" id="minLengthSetting" value="8" min="1"></div>
+            <div class="setting-item"><label>🔊 알림음 활성화:</label><input type="checkbox" id="soundSetting" checked></div>
+            <div class="setting-item"><label>🔋 배터리 절약 모드:</label><input type="checkbox" id="batterySavingSetting" checked><small style="color: #666; display: block; margin-top: 5px;">활성화시 스캔 빈도를 줄여 발열과 배터리 소모를 방지합니다.</small></div>
         </div>
-        
-        <div class="scan-list" id="scanList">
-            <p style="text-align: center; color: #666;">📋 스캔된 바코드가 여기에 표시됩니다</p>
-        </div>
+        <div class="scan-list" id="scanList"><p style="text-align: center; color: #666;">📋 스캔된 바코드가 여기에 표시됩니다</p></div>
     </div>
-
     <script>
         class LibraryBarcodeScanner {
             constructor() {
                 this.scannedCodes = new Set();
                 this.scanHistory = [];
-                this.isScanning = false;
                 this.codeReader = null;
                 this.mediaStream = null;
                 this.lastScannedCode = '';
                 this.lastScanTime = 0;
                 this.scanCooldown = 2000;
-                
                 this.initializeElements();
                 this.initializeEventListeners();
                 this.initializeCodeReader();
             }
-            
             initializeElements() {
                 this.video = document.getElementById('video');
-                this.canvas = document.getElementById('canvas');
-                this.ctx = this.canvas.getContext('2d');
                 this.startBtn = document.getElementById('startBtn');
                 this.stopBtn = document.getElementById('stopBtn');
                 this.exportBtn = document.getElementById('exportBtn');
@@ -163,15 +119,13 @@
                 this.batterySavingSetting = document.getElementById('batterySavingSetting');
                 this.scanIndicator = document.getElementById('scanIndicator');
             }
-            
             initializeEventListeners() {
                 this.startBtn.addEventListener('click', () => this.startScanning());
                 this.stopBtn.addEventListener('click', () => this.stopScanning());
                 this.exportBtn.addEventListener('click', () => this.exportData());
-                this.clearBtn.addEventListener('click', () => this.showClearConfirmModal());
+                this.clearBtn.addEventListener('click', () => this.clearData());
                 this.settingsToggleBtn.addEventListener('click', () => this.toggleSettings());
             }
-            
             initializeCodeReader() {
                 const hints = new Map();
                 hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
@@ -183,430 +137,87 @@
                 ]);
                 this.codeReader = new ZXing.BrowserMultiFormatReader(hints);
             }
-            
             async startScanning() {
                 try {
                     this.hideMessages();
-                    const constraints = {
-                        video: {
-                            facingMode: 'environment',
-                            width: { ideal: 1280 },
-                            height: { ideal: 720 }
-                        }
-                    };
-                    this.mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+                    this.mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
                     this.video.srcObject = this.mediaStream;
-                    
                     this.video.onloadedmetadata = () => {
-                        this.isScanning = true;
                         this.startBtn.style.display = 'none';
                         this.stopBtn.style.display = 'block';
                         this.showSuccess('📷 스캔이 시작되었습니다!');
-                        this.activatePowerSavingMode();
-                        // requestAnimationFrame을 사용하여 부드러운 스캔 루프를 시작합니다.
-                        requestAnimationFrame(this.scanFrame.bind(this));
+                        this.codeReader.decodeFromVideoDevice(
+                            null,
+                            this.video,
+                            (result, error) => {
+                                if (result) this.processBarcodeResult(result.getText());
+                                if (error && !(error instanceof ZXing.NotFoundException)) {
+                                    console.error('스캔 오류:', error);
+                                }
+                            }
+                        );
                     };
-
-                } catch (error) {
-                    console.error('카메라 시작 중 오류 발생:', error);
-                    let userMessage = '카메라를 시작할 수 없습니다: ' + error.name;
-                    if (error.name === 'NotAllowedError') {
-                        userMessage = '카메라 접근 권한이 필요합니다. 브라우저 설정에서 권한을 허용해주세요.';
-                    } else if (error.name === 'NotFoundError' || error.name === 'OverconstrainedError') {
-                        userMessage = '사용 가능한 후면 카메라를 찾거나 요청한 해상도를 지원할 수 없습니다.';
-                    }
-                    this.showError(userMessage);
-                    this.stopScanning();
+                } catch (e) {
+                    this.showError('카메라 시작 불가: ' + e.message);
                 }
             }
-
-            // [핵심 수정] 모든 방향에서 안정적인 스캔을 위한 새로운 프레임 분석 로직
-            scanFrame() {
-                if (!this.isScanning) return;
-
-                if (this.video.readyState === this.video.HAVE_ENOUGH_DATA) {
-                    // 1. 매 프레임마다 캔버스의 변환 상태를 초기화하여 누적 오류를 방지합니다.
-                    this.ctx.setTransform(1, 0, 0, 1, 0, 0);
-
-                    // 2. 비디오 스트림과 화면 표시의 방향을 모두 확인합니다.
-                    const videoIsLandscape = this.video.videoWidth > this.video.videoHeight;
-                    const screenIsPortrait = this.video.clientWidth < this.video.clientHeight;
-
-                    // 3. "비디오는 가로인데 화면은 세로일 때"만 90도 회전 보정을 적용합니다.
-                    if (videoIsLandscape && screenIsPortrait) {
-                        this.canvas.width = this.video.videoHeight;
-                        this.canvas.height = this.video.videoWidth;
-                        this.ctx.translate(this.canvas.width, 0);
-                        this.ctx.rotate(Math.PI / 2);
-                        this.ctx.drawImage(this.video, 0, 0, this.video.videoWidth, this.video.videoHeight);
-                    } else {
-                        // 그 외 모든 경우(가로-가로, 세로-세로 등)에는 회전 없이 그대로 그립니다.
-                        this.canvas.width = this.video.videoWidth;
-                        this.canvas.height = this.video.videoHeight;
-                        this.ctx.drawImage(this.video, 0, 0, this.canvas.width, this.canvas.height);
-                    }
-
-                    try {
-                        // 4. 보정된 캔버스 이미지에서 바코드를 분석합니다.
-                        const result = this.codeReader.decodeFromCanvas(this.canvas);
-                        if (result) {
-                            this.processBarcodeResult(result.getText());
-                        }
-                    } catch (err) {
-                        // NotFoundException은 바코드를 찾지 못한 정상적인 경우이므로 무시합니다.
-                        if (!(err instanceof ZXing.NotFoundException)) {
-                            console.error('스캔 오류:', err);
-                        }
-                    }
-                }
-                // 다음 프레임 처리를 요청합니다.
-                requestAnimationFrame(this.scanFrame.bind(this));
-            }
-            
-            activatePowerSavingMode() {
-                if (this.scanHistory.length === 0) {
-                    setTimeout(() => {
-                        this.showInfo('💡 배터리 절약 팁: 화면 밝기를 조절하세요');
-                    }, 3000);
-                }
-            }
-
             processBarcodeResult(barcode) {
                 const now = Date.now();
-                const currentCooldown = this.batterySavingSetting.checked ? this.scanCooldown : 1000;
-                
-                if (barcode === this.lastScannedCode && (now - this.lastScanTime) < currentCooldown) {
-                    return;
-                }
-                
+                if (barcode === this.lastScannedCode && now - this.lastScanTime < (this.batterySavingSetting.checked ? this.scanCooldown : 1000)) return;
                 this.lastScannedCode = barcode;
                 this.lastScanTime = now;
-                
                 const prefix = this.prefixSetting.value.trim();
-                const minLength = parseInt(this.minLengthSetting.value);
-                
-                if (prefix && !barcode.startsWith(prefix)) {
-                    this.handleInvalidScan(`올바르지 않은 시작 문자 (${prefix}로 시작해야 함)`, barcode);
-                    return;
-                }
-                
-                if (barcode.length < minLength) {
-                    this.handleInvalidScan(`바코드 길이가 너무 짧음 (최소 ${minLength}자)`, barcode);
-                    return;
-                }
-                
-                if (this.scannedCodes.has(barcode)) {
-                    this.handleInvalidScan(`중복된 바코드`, barcode, true);
-                    return;
-                }
-                
+                const minLen = parseInt(this.minLengthSetting.value, 10);
+                if (prefix && !barcode.startsWith(prefix)) { this.handleInvalidScan(`올바르지 않은 시작 문자 (${prefix})`, barcode); return; }
+                if (barcode.length < minLen) { this.handleInvalidScan(`길이 부족 (최소 ${minLen})`, barcode); return; }
+                if (this.scannedCodes.has(barcode)) { this.handleInvalidScan('중복 바코드', barcode, true); return; }
                 this.handleValidScan(barcode, now);
             }
-
-            handleInvalidScan(reason, barcode, isDuplicate = false) {
-                this.playErrorSound();
-                this.flashIndicator('red');
-                this.showError(`❌ ${reason}: ${barcode}`);
-                if (isDuplicate) {
-                    this.updateStats(true);
-                }
-            }
-
             handleValidScan(barcode, now) {
-                const timeString = new Date(now).toLocaleString('ko-KR');
                 this.scannedCodes.add(barcode);
-                this.scanHistory.push({
-                    barcode: barcode,
-                    timestamp: new Date(now),
-                    timeString: timeString
-                });
-                
-                this.playSuccessSound();
+                this.scanHistory.push({ barcode, time: new Date(now) });
                 this.flashIndicator('green');
+                this.playSuccessSound();
                 this.updateScanList();
                 this.updateStats();
-                this.showSuccess(`✅ 스캔 완료: ${barcode}`);
             }
-            
+            handleInvalidScan(reason, barcode, duplicate = false) {
+                this.flashIndicator('red');
+                this.playErrorSound();
+                this.showError(`❌ ${reason}: ${barcode}`);
+                if (duplicate) this.updateStats(true);
+            }
+            updateScanList() {
+                const items = this.scanHistory.slice().reverse().map(item => `<div class="scan-item"><div>${item.barcode}</div><div class="scan-time">${item.time.toLocaleString('ko-KR')}</div></div>`).join('');
+                this.scanList.innerHTML = items || '<p style="text-align:center;color:#666;">📋 스캔된 바코드가 여기에 표시됩니다</p>';
+            }
+            updateStats(dupTry = false) {
+                const total = this.scanHistory.length + (dupTry ? 1 : 0);
+                const valid = this.scannedCodes.size;
+                const dup = total - valid;
+                this.totalCount.textContent = total;
+                this.validCount.textContent = valid;
+                this.duplicateCount.textContent = dup;
+            }
             stopScanning() {
-                this.isScanning = false;
-                if (this.mediaStream) {
-                    this.mediaStream.getTracks().forEach(track => track.stop());
-                }
+                if (this.codeReader) this.codeReader.reset();
+                if (this.mediaStream) this.mediaStream.getTracks().forEach(t => t.stop());
                 this.video.srcObject = null;
-                this.mediaStream = null;
-
                 this.startBtn.style.display = 'block';
                 this.stopBtn.style.display = 'none';
-                if(!this.errorMsg.style.display || this.errorMsg.style.display === 'none') {
-                    this.showSuccess('⏹️ 스캔이 중지되었습니다');
-                }
+                this.showSuccess('⏹️ 스캔이 중지되었습니다');
             }
-            
-            updateScanList() {
-                if (this.scanHistory.length === 0) {
-                    this.scanList.innerHTML = '<p style="text-align: center; color: #666;">📋 스캔된 바코드가 여기에 표시됩니다</p>';
-                    return;
-                }
-                
-                this.scanList.innerHTML = this.scanHistory
-                    .slice(-100)
-                    .reverse()
-                    .map(item => `
-                        <div class="scan-item">
-                            <div>${item.barcode}</div>
-                            <div class="scan-time">⏰ ${item.timeString}</div>
-                        </div>
-                    `).join('');
-            }
-            
-            updateStats(isDuplicateAttempt = false) {
-                const totalScans = this.scanHistory.length + (isDuplicateAttempt ? 1 : 0);
-                const validScans = this.scannedCodes.size;
-                const duplicateScans = totalScans - validScans;
-
-                this.totalCount.textContent = totalScans;
-                this.validCount.textContent = validScans;
-                this.duplicateCount.textContent = duplicateScans;
-            }
-            
-            exportData() {
-                if (this.scanHistory.length === 0) {
-                    this.showError('내보낼 데이터가 없습니다');
-                    return;
-                }
-                
-                const csvContent = [
-                    '바코드,스캔시간,날짜,시간',
-                    ...this.scanHistory.map(item => 
-                        `"${item.barcode}","${item.timeString}","${item.timestamp.toLocaleDateString('ko-KR')}","${item.timestamp.toLocaleTimeString('ko-KR')}"`
-                    )
-                ].join('\n');
-                
-                this.showExportModal(csvContent);
-            }
-            
-            showExportModal(csvContent) {
-                const modalHTML = `
-                    <div class="modal-overlay" id="exportModal">
-                        <div class="modal-content">
-                            <h3>📊 데이터 내보내기</h3>
-                            <p style='font-size: 12px; color: #666; text-align: center; margin-bottom: 15px;'>💡 스마트폰에서는 '공유하기' 또는 '클립보드 복사'를 사용하면 편리합니다.</p>
-                            <div style="margin-bottom: 15px;">
-                                <button id="copyBtn" class="btn btn-primary">📋 클립보드에 복사</button>
-                                <button id="downloadBtn" class="btn btn-secondary">💾 파일 다운로드</button>
-                                <button id="shareBtn" class="btn" style="background: #FF9800; color: white;">📤 공유하기</button>
-                            </div>
-                            <div>
-                                <label style="display: block; margin-bottom: 5px; font-weight: bold;">📄 CSV 데이터 미리보기:</label>
-                                <textarea readonly style="width: 100%; height: 200px; padding: 10px; border: 1px solid #ddd; border-radius: 5px; font-family: monospace; font-size: 12px; resize: none;">${csvContent}</textarea>
-                            </div>
-                            <div class="modal-buttons">
-                                <button id="closeExportModalBtn" class="btn btn-danger" style="width: 100%;">❌ 닫기</button>
-                            </div>
-                        </div>
-                    </div>
-                `;
-                document.body.insertAdjacentHTML('beforeend', modalHTML);
-
-                document.getElementById('copyBtn').addEventListener('click', (e) => this.copyToClipboard(csvContent, e.target));
-                document.getElementById('downloadBtn').addEventListener('click', (e) => this.downloadCSV(csvContent, e.target));
-                document.getElementById('shareBtn').addEventListener('click', (e) => this.shareData(csvContent, e.target));
-                document.getElementById('closeExportModalBtn').addEventListener('click', () => this.closeModal('exportModal'));
-                document.getElementById('exportModal').addEventListener('click', (e) => {
-                    if (e.target.id === 'exportModal') this.closeModal('exportModal');
-                });
-            }
-
-            showClearConfirmModal() {
-                const modalHTML = `
-                    <div class="modal-overlay" id="clearConfirmModal">
-                        <div class="modal-content">
-                            <h3>🗑️ 데이터 삭제 확인</h3>
-                            <p>정말로 모든 스캔 데이터를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.</p>
-                            <div class="modal-buttons">
-                                <button id="confirmClearBtn" class="btn btn-danger">삭제</button>
-                                <button id="cancelClearBtn" class="btn btn-secondary">취소</button>
-                            </div>
-                        </div>
-                    </div>
-                `;
-                document.body.insertAdjacentHTML('beforeend', modalHTML);
-
-                document.getElementById('confirmClearBtn').addEventListener('click', () => {
-                    this.clearData();
-                    this.closeModal('clearConfirmModal');
-                });
-                document.getElementById('cancelClearBtn').addEventListener('click', () => this.closeModal('clearConfirmModal'));
-                document.getElementById('clearConfirmModal').addEventListener('click', (e) => {
-                    if (e.target.id === 'clearConfirmModal') this.closeModal('clearConfirmModal');
-                });
-            }
-
-            closeModal(modalId) {
-                const modal = document.getElementById(modalId);
-                if (modal) modal.remove();
-            }
-            
-            async copyToClipboard(csvContent, button) {
-                try {
-                    await navigator.clipboard.writeText(csvContent);
-                    this.showTemporarySuccess(button, '✅ 복사됨!');
-                    this.showSuccess('📋 클립보드에 복사되었습니다');
-                } catch (error) {
-                    this.showError('클립보드 복사 실패. 수동으로 복사해주세요.');
-                }
-            }
-            
-            downloadCSV(csvContent, button) {
-                try {
-                    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
-                    const url = URL.createObjectURL(blob);
-                    const link = document.createElement('a');
-                    
-                    const now = new Date();
-                    const year = now.getFullYear().toString().slice(-2);
-                    const month = (now.getMonth() + 1).toString().padStart(2, '0');
-                    const day = now.getDate().toString().padStart(2, '0');
-                    const hours = now.getHours().toString().padStart(2, '0');
-                    const minutes = now.getMinutes().toString().padStart(2, '0');
-                    const count = this.scanHistory.length.toString().padStart(3, '0');
-
-                    link.href = url;
-                    link.download = `${year}${month}${day}_${hours}${minutes}_${count}.csv`;
-                    
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                    URL.revokeObjectURL(url);
-                    
-                    this.showTemporarySuccess(button, '✅ 다운로드!');
-                    this.showSuccess(`💾 ${this.scanHistory.length}개 항목이 다운로드되었습니다`);
-                } catch (error) {
-                    this.showError('파일 다운로드 실패. 클립보드 복사를 이용해주세요.');
-                }
-            }
-            
-            async shareData(csvContent, button) {
-                if (!navigator.share) {
-                    this.showError('공유 기능을 지원하지 않는 브라우저입니다.');
-                    return;
-                }
-                const fileName = `장서점검_${new Date().toISOString().slice(0,10)}.csv`;
-                const file = new File(['\uFEFF' + csvContent], fileName, { type: 'text/csv' });
-                try {
-                    await navigator.share({
-                        title: '📚 도서관 장서점검 결과',
-                        text: `장서점검 결과 (${this.scanHistory.length}개 항목)`,
-                        files: [file]
-                    });
-                    this.showTemporarySuccess(button, '✅ 공유됨!');
-                } catch (error) {
-                    this.showError('공유에 실패했습니다. 클립보드 복사를 이용해주세요.');
-                }
-            }
-            
-            showTemporarySuccess(button, message) {
-                const originalText = button.textContent;
-                const originalBg = button.style.backgroundColor;
-                button.textContent = message;
-                button.style.background = '#4CAF50';
-                button.disabled = true;
-                setTimeout(() => {
-                    button.textContent = originalText;
-                    button.style.background = originalBg;
-                    button.disabled = false;
-                }, 2000);
-            }
-            
-            clearData() {
-                this.scannedCodes.clear();
-                this.scanHistory = [];
-                this.updateScanList();
-                this.updateStats();
-                this.showSuccess('🗑️ 모든 데이터가 삭제되었습니다');
-            }
-            
-            playBeep(frequency, duration) {
-                if (!this.soundSetting.checked) return;
-                try {
-                    const context = new (window.AudioContext || window.webkitAudioContext)();
-                    const oscillator = context.createOscillator();
-                    const gainNode = context.createGain();
-                    oscillator.connect(gainNode);
-                    gainNode.connect(context.destination);
-                    oscillator.frequency.value = frequency;
-                    gainNode.gain.setValueAtTime(0.3, context.currentTime);
-                    gainNode.gain.exponentialRampToValueAtTime(0.01, context.currentTime + duration / 1000);
-                    oscillator.start(context.currentTime);
-                    oscillator.stop(context.currentTime + duration / 1000);
-                } catch (e) {
-                    console.error("AudioContext를 지원하지 않는 환경입니다.", e);
-                }
-            }
-            playSuccessSound() { this.playBeep(960, 150); }
-            playErrorSound() { this.playBeep(320, 300); }
-
-            flashIndicator(color) {
-                if (!this.scanIndicator) return;
-                const className = color === 'green' ? 'light-green' : 'light-red';
-                this.scanIndicator.classList.add(className);
-                setTimeout(() => {
-                    this.scanIndicator.classList.remove(className);
-                }, 1000);
-            }
-
-            showError(message) { this.showMessage(this.errorMsg, message, 3000); }
-            showSuccess(message) { this.showMessage(this.successMsg, message, 2000); }
-            showInfo(message) { this.showMessage(this.successMsg, message, 4000, '#e3f2fd', '#1565c0'); }
-
-            showMessage(element, message, duration, bg = null, color = null) {
-                const originalBg = element.style.background;
-                const originalColor = element.style.color;
-                
-                element.textContent = message;
-                if(bg) element.style.background = bg;
-                if(color) element.style.color = color;
-
-                element.style.display = 'block';
-                (element === this.errorMsg ? this.successMsg : this.errorMsg).style.display = 'none';
-                
-                setTimeout(() => {
-                    element.style.display = 'none';
-                    if(bg) element.style.background = originalBg;
-                    if(color) element.style.color = originalColor;
-                }, duration);
-            }
-            
-            hideMessages() {
-                this.errorMsg.style.display = 'none';
-                this.successMsg.style.display = 'none';
-            }
-
-            toggleSettings() {
-                const panel = this.settingsPanel;
-                panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
-            }
+            clearData() { this.scannedCodes.clear(); this.scanHistory = []; this.updateScanList(); this.updateStats(); }
+            playBeep(freq, dur) { try { const c=new (window.AudioContext||window.webkitAudioContext)(); const o=c.createOscillator(); const g=c.createGain(); o.connect(g); g.connect(c.destination); o.frequency.value=freq; g.gain.setValueAtTime(0.3,c.currentTime); g.gain.exponentialRampToValueAtTime(0.01,c.currentTime+dur/1000); o.start(c.currentTime); o.stop(c.currentTime+dur/1000);}catch{} }
+            playSuccessSound() { if(this.soundSetting.checked) this.playBeep(960,150);}  
+            playErrorSound() { if(this.soundSetting.checked) this.playBeep(320,300);}  
+            flashIndicator(color) { const cls=color==='green'?'light-green':'light-red'; this.scanIndicator.classList.add(cls); setTimeout(()=>this.scanIndicator.classList.remove(cls),1000);}  
+            showError(msg) { this.errorMsg.textContent=msg; this.errorMsg.style.display='block'; setTimeout(()=>this.errorMsg.style.display='none',3000);}  
+            showSuccess(msg) { this.successMsg.textContent=msg; this.successMsg.style.display='block'; setTimeout(()=>this.successMsg.style.display='none',2000);}  
+            hideMessages() { this.errorMsg.style.display='none'; this.successMsg.style.display='none'; }
+            toggleSettings() { this.settingsPanel.style.display = this.settingsPanel.style.display==='none'?'block':'none'; }
         }
-        
-        window.addEventListener('load', () => {
-            const scanner = new LibraryBarcodeScanner();
-            scanner.updateStats();
-        });
-        
-        /*
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js')
-                    .then((registration) => {
-                        console.log('SW registered: ', registration);
-                    })
-                    .catch((registrationError) => {
-                        console.log('SW registration failed: ', registrationError);
-                    });
-            });
-        }
-        */
+        window.addEventListener('load',()=>new LibraryBarcodeScanner());
     </script>
 </body>
 </html>
