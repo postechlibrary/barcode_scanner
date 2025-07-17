@@ -52,6 +52,16 @@
             border: 3px solid #4CAF50;
         }
         
+        .rotation-hint {
+            animation: fadeInOut 2s ease-in-out;
+        }
+        
+        @keyframes fadeInOut {
+            0% { opacity: 0; transform: translateX(-50%) translateY(10px); }
+            50% { opacity: 1; transform: translateX(-50%) translateY(0); }
+            100% { opacity: 0; transform: translateX(-50%) translateY(-10px); }
+        }
+        
         .controls {
             padding: 0 20px 20px;
         }
@@ -200,6 +210,20 @@
         <div class="scanner-area">
             <video id="video" autoplay muted playsinline></video>
             <canvas id="canvas" style="display: none;"></canvas>
+            <div class="rotation-hint" style="
+                position: absolute;
+                bottom: 10px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: rgba(0,0,0,0.7);
+                color: white;
+                padding: 5px 10px;
+                border-radius: 15px;
+                font-size: 12px;
+                display: none;
+            " id="rotationHint">
+                🔄 모든 각도에서 스캔 가능합니다
+            </div>
         </div>
         
         <div class="controls">
@@ -253,10 +277,13 @@
             constructor() {
                 this.scannedCodes = new Set();
                 this.scanHistory = [];
-                this.duplicateAttempts = 0; // 중복 시도 횟수 추가
+                this.duplicateAttempts = 0;
                 this.isScanning = false;
                 this.codeReader = null;
                 this.stream = null;
+                this.lastScannedCode = '';
+                this.lastScanTime = 0;
+                this.scanCooldown = 1000; // 같은 바코드 재스캔 방지 (1초)
                 
                 this.initializeElements();
                 this.initializeEventListeners();
@@ -288,7 +315,42 @@
             }
             
             initializeCodeReader() {
-                this.codeReader = new ZXing.BrowserMultiFormatReader();
+                // 다양한 각도의 바코드 인식을 위한 설정
+                const hints = new Map();
+                
+                // 더 정확한 스캔을 위한 설정
+                hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+                
+                // 다양한 바코드 포맷 지원
+                hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [
+                    ZXing.BarcodeFormat.CODE_128,
+                    ZXing.BarcodeFormat.CODE_39,
+                    ZXing.BarcodeFormat.CODE_93,
+                    ZXing.BarcodeFormat.CODABAR,
+                    ZXing.BarcodeFormat.EAN_13,
+                    ZXing.BarcodeFormat.EAN_8,
+                    ZXing.BarcodeFormat.ITF,
+                    ZXing.BarcodeFormat.UPC_A,
+                    ZXing.BarcodeFormat.UPC_E,
+                    ZXing.BarcodeFormat.RSS_14,
+                    ZXing.BarcodeFormat.RSS_EXPANDED
+                ]);
+                
+                // 회전된 바코드도 인식하도록 설정
+                hints.set(ZXing.DecodeHintType.ALSO_INVERTED, true);
+                
+                this.codeReader = new ZXing.BrowserMultiFormatReader(hints);
+                
+                // 카메라 해상도 설정 (높은 해상도로 더 정확한 인식)
+                this.cameraConstraints = {
+                    video: {
+                        facingMode: 'environment',
+                        width: { ideal: 1920, min: 640 },
+                        height: { ideal: 1080, min: 480 },
+                        focusMode: 'continuous',
+                        whiteBalanceMode: 'continuous'
+                    }
+                };
             }
             
             async startScanning() {
@@ -304,20 +366,159 @@
                     this.startBtn.style.display = 'none';
                     this.stopBtn.style.display = 'block';
                     
-                    // ZXing을 사용한 연속 바코드 스캔
-                    this.codeReader.decodeFromVideoDevice(null, 'video', (result, err) => {
-                        if (result) {
-                            this.processBarcodeResult(result.text);
-                        }
-                        // 에러는 바코드가 감지되지 않는 정상적인 상황이므로 무시
-                    });
+                    // 카메라 권한 및 스트림 설정
+                    try {
+                        const stream = await navigator.mediaDevices.getUserMedia(this.cameraConstraints);
+                        this.video.srcObject = stream;
+                        this.stream = stream;
+                        
+                        // 비디오가 준비될 때까지 대기
+                        await new Promise((resolve) => {
+                            this.video.onloadedmetadata = resolve;
+                        });
+                        
+                    } catch (error) {
+                        // 고해상도 실패시 기본 설정으로 재시도
+                        const fallbackConstraints = {
+                            video: { 
+                                facingMode: 'environment',
+                                width: { ideal: 1280 },
+                                height: { ideal: 720 }
+                            }
+                        };
+                        const stream = await navigator.mediaDevices.getUserMedia(fallbackConstraints);
+                        this.video.srcObject = stream;
+                        this.stream = stream;
+                    }
                     
-                    this.showSuccess('📷 스캔이 시작되었습니다!');
+                    // 향상된 연속 스캔 시작
+                    this.startAdvancedScanning();
+                    
+                    this.showSuccess('📷 스캔이 시작되었습니다! (모든 각도 지원)');
                     
                 } catch (error) {
                     this.showError('카메라 접근 실패: ' + error.message);
                     this.resetUI();
                 }
+            }
+            
+            startAdvancedScanning() {
+                if (!this.isScanning) return;
+                
+                // 캔버스를 사용한 향상된 바코드 인식
+                const canvas = document.getElementById('canvas');
+                const context = canvas.getContext('2d');
+                
+                const scanFrame = () => {
+                    if (!this.isScanning) return;
+                    
+                    try {
+                        // 비디오 프레임을 캔버스에 그리기
+                        canvas.width = this.video.videoWidth;
+                        canvas.height = this.video.videoHeight;
+                        context.drawImage(this.video, 0, 0, canvas.width, canvas.height);
+                        
+                        // 이미지 데이터 가져오기
+                        const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+                        
+                        // 바코드 스캔 시도 (회전 지원)
+                        this.tryDecodeFromImageData(imageData)
+                            .then(result => {
+                                if (result) {
+                                    this.processBarcodeResult(result.text);
+                                }
+                            })
+                            .catch(() => {
+                                // 에러는 정상 (바코드가 없는 프레임)
+                            });
+                        
+                    } catch (error) {
+                        // 스캔 에러 무시
+                    }
+                    
+                    // 다음 프레임 스캔 (60fps 기준)
+                    if (this.isScanning) {
+                        requestAnimationFrame(scanFrame);
+                    }
+                };
+                
+                // 스캔 시작
+                requestAnimationFrame(scanFrame);
+            }
+            
+            async tryDecodeFromImageData(imageData) {
+                try {
+                    // 원본 이미지에서 스캔 시도
+                    const result = await this.codeReader.decodeFromImageData(imageData);
+                    if (result) return result;
+                    
+                } catch (error) {
+                    // 원본 실패시 회전된 이미지들로 시도
+                    try {
+                        // 90도 회전
+                        const rotated90 = this.rotateImageData(imageData, 90);
+                        const result90 = await this.codeReader.decodeFromImageData(rotated90);
+                        if (result90) return result90;
+                        
+                        // 180도 회전
+                        const rotated180 = this.rotateImageData(imageData, 180);
+                        const result180 = await this.codeReader.decodeFromImageData(rotated180);
+                        if (result180) return result180;
+                        
+                        // 270도 회전
+                        const rotated270 = this.rotateImageData(imageData, 270);
+                        const result270 = await this.codeReader.decodeFromImageData(rotated270);
+                        if (result270) return result270;
+                        
+                    } catch (rotationError) {
+                        // 회전 스캔도 실패
+                    }
+                }
+                
+                return null;
+            }
+            
+            rotateImageData(imageData, degrees) {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                
+                const { width, height } = imageData;
+                
+                if (degrees === 90 || degrees === 270) {
+                    canvas.width = height;
+                    canvas.height = width;
+                } else {
+                    canvas.width = width;
+                    canvas.height = height;
+                }
+                
+                // 회전 변환 적용
+                ctx.save();
+                
+                if (degrees === 90) {
+                    ctx.translate(height, 0);
+                    ctx.rotate(Math.PI / 2);
+                } else if (degrees === 180) {
+                    ctx.translate(width, height);
+                    ctx.rotate(Math.PI);
+                } else if (degrees === 270) {
+                    ctx.translate(0, width);
+                    ctx.rotate(-Math.PI / 2);
+                }
+                
+                // 임시 캔버스에 원본 이미지 그리기
+                const tempCanvas = document.createElement('canvas');
+                const tempCtx = tempCanvas.getContext('2d');
+                tempCanvas.width = width;
+                tempCanvas.height = height;
+                tempCtx.putImageData(imageData, 0, 0);
+                
+                // 회전된 캔버스에 그리기
+                ctx.drawImage(tempCanvas, 0, 0);
+                ctx.restore();
+                
+                // 회전된 이미지 데이터 반환
+                return ctx.getImageData(0, 0, canvas.width, canvas.height);
             }
             
             async scanContinuously() {
@@ -339,8 +540,17 @@
             }
             
             processBarcodeResult(barcode) {
-                const now = new Date();
-                const timeString = now.toLocaleString('ko-KR');
+                const now = Date.now();
+                
+                // 중복 스캔 방지 (같은 바코드를 너무 자주 스캔하지 않도록)
+                if (barcode === this.lastScannedCode && (now - this.lastScanTime) < this.scanCooldown) {
+                    return;
+                }
+                
+                this.lastScannedCode = barcode;
+                this.lastScanTime = now;
+                
+                const timeString = new Date(now).toLocaleString('ko-KR');
                 
                 // 유효성 검사
                 const prefix = this.prefixSetting.value.trim();
@@ -380,7 +590,7 @@
                 this.scannedCodes.add(barcode);
                 this.scanHistory.push({
                     barcode: barcode,
-                    timestamp: now,
+                    timestamp: new Date(now),
                     timeString: timeString
                 });
                 
@@ -388,6 +598,19 @@
                 this.updateScanList();
                 this.updateStats();
                 this.showSuccess(`✅ 스캔 완료: ${barcode}`);
+                
+                // 회전 힌트 표시
+                this.showRotationHint();
+            }
+            
+            showRotationHint() {
+                const hint = document.getElementById('rotationHint');
+                if (hint) {
+                    hint.style.display = 'block';
+                    setTimeout(() => {
+                        hint.style.display = 'none';
+                    }, 2000);
+                }
             }
             
             stopScanning() {
