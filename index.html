@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>📚 도서관 장서점검 스캐너 v1.4</title>
+    <title>📚 도서관 장서점검 스캐너 v1.5</title>
     <script src="https://unpkg.com/@zxing/library@latest/umd/index.min.js"></script>
     <style>
         /* --- 기본 스타일 (변경 없음) --- */
@@ -43,56 +43,28 @@
         .success-message { background: #e8f5e8; color: #2e7d32; }
         .toggle-btn { background: none; border: none; color: #2196F3; cursor: pointer; text-decoration: underline; margin: 10px 0; padding: 5px; display: block; margin-left: auto; margin-right: auto;}
 
-        /* --- 모달 스타일 --- */
-        .modal-overlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.7); z-index: 1000;
-            display: flex; align-items: center; justify-content: center;
-            padding: 20px;
-        }
-        .modal-content {
-            background: white; border-radius: 10px; padding: 20px;
-            width: 100%; max-width: 500px; max-height: 90vh;
-            overflow: hidden; display: flex; flex-direction: column;
-        }
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 20px; }
+        .modal-content { background: white; border-radius: 10px; padding: 20px; width: 100%; max-width: 500px; max-height: 90vh; overflow: hidden; display: flex; flex-direction: column; }
         .modal-content h3 { margin: 0 0 10px 0; text-align: center; }
         .modal-buttons { display: flex; gap: 10px; margin-top: 20px; }
 
-        /* --- [추가] 상태 표시등 스타일 --- */
-        .indicator-light {
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            background-color: #555; /* 기본 회색빛 */
-            border: 2px solid #fff;
-            box-shadow: 0 0 5px rgba(0,0,0,0.3);
-            transition: all 0.3s ease;
-            position: absolute;
-            top: 50%;
-            right: 20px;
-            transform: translateY(-50%);
-        }
-        .light-green {
-            background-color: #28a745;
-            box-shadow: 0 0 15px #28a745;
-        }
-        .light-red {
-            background-color: #dc3545;
-            box-shadow: 0 0 15px #dc3545;
-        }
+        .indicator-light { width: 20px; height: 20px; border-radius: 50%; background-color: #555; border: 2px solid #fff; box-shadow: 0 0 5px rgba(0,0,0,0.3); transition: all 0.3s ease; position: absolute; top: 50%; right: 20px; transform: translateY(-50%); }
+        .light-green { background-color: #28a745; box-shadow: 0 0 15px #28a745; }
+        .light-red { background-color: #dc3545; box-shadow: 0 0 15px #dc3545; }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <!-- [추가] 상태 표시등 UI -->
             <div id="scanIndicator" class="indicator-light"></div>
-            <h1>📚 도서관 장서점검 v1.4</h1>
+            <h1>📚 도서관 장서점검 v1.5</h1>
             <p>바코드 스캐너</p>
         </div>
         
         <div class="scanner-area">
             <video id="video" autoplay muted playsinline></video>
+            <!-- 세로 모드 보정을 위한 숨겨진 캔버스 -->
+            <canvas id="canvas" style="display: none;"></canvas>
         </div>
         
         <div class="controls">
@@ -113,7 +85,7 @@
             </div>
             <div class="stat-item">
                 <div class="stat-value" id="validCount">0</div>
-                <div class.stat-label">✅ 유효</div>
+                <div class="stat-label">✅ 유효</div>
             </div>
             <div class="stat-item">
                 <div class="stat-value" id="duplicateCount">0</div>
@@ -141,7 +113,6 @@
                     활성화시 스캔 빈도를 줄여 발열과 배터리 소모를 방지합니다.
                 </small>
             </div>
-            <!-- [추가] 온도 관련 안내 문구 -->
             <div class="setting-item" style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #eee;">
                  <small style="color: #666; display: block;">
                     <b>참고:</b> 웹 브라우저 보안 정책상 기기의 온도를 직접 측정할 수 없습니다. 장시간 사용으로 기기가 뜨거워지면, 과열 방지를 위해 잠시 사용을 중단해주세요.
@@ -161,6 +132,7 @@
                 this.scanHistory = [];
                 this.isScanning = false;
                 this.codeReader = null;
+                this.mediaStream = null; // 미디어 스트림 저장을 위해 추가
                 this.lastScannedCode = '';
                 this.lastScanTime = 0;
                 this.scanCooldown = 2000;
@@ -172,6 +144,8 @@
             
             initializeElements() {
                 this.video = document.getElementById('video');
+                this.canvas = document.getElementById('canvas'); // 캔버스 엘리먼트
+                this.ctx = this.canvas.getContext('2d');
                 this.startBtn = document.getElementById('startBtn');
                 this.stopBtn = document.getElementById('stopBtn');
                 this.exportBtn = document.getElementById('exportBtn');
@@ -188,7 +162,6 @@
                 this.minLengthSetting = document.getElementById('minLengthSetting');
                 this.soundSetting = document.getElementById('soundSetting');
                 this.batterySavingSetting = document.getElementById('batterySavingSetting');
-                // [추가] 상태 표시등 엘리먼트
                 this.scanIndicator = document.getElementById('scanIndicator');
             }
             
@@ -209,17 +182,12 @@
                     ZXing.BarcodeFormat.EAN_13,
                     ZXing.BarcodeFormat.EAN_8
                 ]);
-                hints.set(ZXing.DecodeHintType.ALSO_INVERTED, true);
                 this.codeReader = new ZXing.BrowserMultiFormatReader(hints);
             }
             
             async startScanning() {
                 try {
                     this.hideMessages();
-                    this.isScanning = true;
-                    this.startBtn.style.display = 'none';
-                    this.stopBtn.style.display = 'block';
-
                     const constraints = {
                         video: {
                             facingMode: 'environment',
@@ -227,18 +195,19 @@
                             height: { ideal: 720 }
                         }
                     };
-
-                    this.codeReader.decodeFromConstraints(constraints, 'video', (result, err) => {
-                        if (result && this.isScanning) {
-                            this.processBarcodeResult(result.text);
-                        }
-                        if (err && !(err instanceof ZXing.NotFoundException)) {
-                            console.error('스캔 중 예상치 못한 오류 발생:', err);
-                        }
-                    });
-
-                    this.showSuccess('📷 스캔이 시작되었습니다!');
-                    this.activatePowerSavingMode();
+                    // 사용자 미디어 스트림 직접 요청
+                    this.mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+                    this.video.srcObject = this.mediaStream;
+                    
+                    this.video.onloadedmetadata = () => {
+                        this.isScanning = true;
+                        this.startBtn.style.display = 'none';
+                        this.stopBtn.style.display = 'block';
+                        this.showSuccess('📷 스캔이 시작되었습니다!');
+                        this.activatePowerSavingMode();
+                        // [핵심 개선] 프레임 단위 스캔 루프 시작
+                        requestAnimationFrame(() => this.scanFrame());
+                    };
 
                 } catch (error) {
                     console.error('카메라 시작 중 오류 발생:', error);
@@ -251,6 +220,45 @@
                     this.showError(userMessage);
                     this.stopScanning();
                 }
+            }
+
+            // [핵심 개선] 프레임 단위 스캔 및 회전 보정 로직
+            scanFrame() {
+                if (!this.isScanning) return;
+
+                if (this.video.readyState === this.video.HAVE_ENOUGH_DATA) {
+                    // 세로 모드 감지 (화면의 높이가 너비보다 클 경우)
+                    const isPortrait = window.innerHeight > window.innerWidth;
+
+                    if (isPortrait) {
+                        // 세로 모드일 경우, 캔버스 크기를 비디오의 가로/세로와 반대로 설정
+                        this.canvas.width = this.video.videoHeight;
+                        this.canvas.height = this.video.videoWidth;
+                        // 캔버스를 90도 회전시켜 이미지를 바로 세움
+                        this.ctx.translate(this.canvas.width, 0);
+                        this.ctx.rotate(90 * Math.PI / 180);
+                        this.ctx.drawImage(this.video, 0, 0);
+                    } else {
+                        // 가로 모드일 경우, 캔버스 크기를 비디오와 동일하게 설정
+                        this.canvas.width = this.video.videoWidth;
+                        this.canvas.height = this.video.videoHeight;
+                        this.ctx.drawImage(this.video, 0, 0, this.canvas.width, this.canvas.height);
+                    }
+
+                    try {
+                        // 보정된 캔버스에서 바코드를 읽음
+                        const result = this.codeReader.decodeFromCanvas(this.canvas);
+                        if (result) {
+                            this.processBarcodeResult(result.getText());
+                        }
+                    } catch (err) {
+                        if (!(err instanceof ZXing.NotFoundException)) {
+                            console.error('스캔 오류:', err);
+                        }
+                    }
+                }
+                // 다음 프레임 요청
+                requestAnimationFrame(() => this.scanFrame());
             }
             
             activatePowerSavingMode() {
@@ -295,7 +303,7 @@
 
             handleInvalidScan(reason, barcode, isDuplicate = false) {
                 this.playErrorSound();
-                this.flashIndicator('red'); // 빨간색 라이트 표시
+                this.flashIndicator('red');
                 this.showError(`❌ ${reason}: ${barcode}`);
                 if (isDuplicate) {
                     this.updateStats(true);
@@ -312,7 +320,7 @@
                 });
                 
                 this.playSuccessSound();
-                this.flashIndicator('green'); // 녹색 라이트 표시
+                this.flashIndicator('green');
                 this.updateScanList();
                 this.updateStats();
                 this.showSuccess(`✅ 스캔 완료: ${barcode}`);
@@ -320,9 +328,13 @@
             
             stopScanning() {
                 this.isScanning = false;
-                if (this.codeReader) {
-                    this.codeReader.reset();
+                // 미디어 스트림이 활성화 상태일 때 각 트랙을 중지
+                if (this.mediaStream) {
+                    this.mediaStream.getTracks().forEach(track => track.stop());
                 }
+                this.video.srcObject = null;
+                this.mediaStream = null;
+
                 this.startBtn.style.display = 'block';
                 this.stopBtn.style.display = 'none';
                 if(!this.errorMsg.style.display || this.errorMsg.style.display === 'none') {
@@ -531,18 +543,16 @@
                     console.error("AudioContext를 지원하지 않는 환경입니다.", e);
                 }
             }
-            // [개선] 소리 차별화: 성공(높고 짧게), 실패(낮고 길게)
             playSuccessSound() { this.playBeep(960, 150); }
             playErrorSound() { this.playBeep(320, 300); }
 
-            // [추가] 상태 표시등 점멸 기능
             flashIndicator(color) {
                 if (!this.scanIndicator) return;
                 const className = color === 'green' ? 'light-green' : 'light-red';
                 this.scanIndicator.classList.add(className);
                 setTimeout(() => {
                     this.scanIndicator.classList.remove(className);
-                }, 1000); // 1초 동안 점등
+                }, 1000);
             }
 
             showError(message) { this.showMessage(this.errorMsg, message, 3000); }
