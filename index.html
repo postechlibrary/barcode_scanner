@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>📚 도서관 장서점검 스캐너 v2.8</title>
+    <title>📚 도서관 장서점검 스캐너 v2.9</title>
     <!-- 라이브러리 버전을 특정하여 안정성 확보 -->
     <script src="https://unpkg.com/@zxing/library@0.21.0/umd/index.min.js"></script>
     <style>
@@ -84,7 +84,7 @@
     <div class="container">
         <div class="header">
             <div id="scanIndicator" class="indicator-light"></div>
-            <h1>📚 도서관 장서점검 v2.8</h1>
+            <h1>📚 도서관 장서점검 v2.9</h1>
             <p>바코드 스캐너</p>
         </div>
         
@@ -439,7 +439,6 @@
                     const url = URL.createObjectURL(blob);
                     const link = document.createElement('a');
                     
-                    // [핵심 수정] 파일명을 "날짜_시간분_일련번호" 형식으로 변경
                     const now = new Date();
                     const year = now.getFullYear().toString().slice(-2);
                     const month = (now.getMonth() + 1).toString().padStart(2, '0');
@@ -463,13 +462,23 @@
                 }
             }
             
+            // [핵심 수정] 공유하기 파일명을 요청하신 형식으로 변경
             async shareData(csvContent, button) {
                 if (!navigator.share) {
                     this.showError('공유 기능을 지원하지 않는 브라우저입니다.');
                     return;
                 }
-                const fileName = `장서점검_${new Date().toISOString().slice(0,10)}.csv`;
+
+                const now = new Date();
+                const year = now.getFullYear().toString().slice(-2);
+                const month = (now.getMonth() + 1).toString().padStart(2, '0');
+                const day = now.getDate().toString().padStart(2, '0');
+                const hours = now.getHours().toString().padStart(2, '0');
+                const minutes = now.getMinutes().toString().padStart(2, '0');
+
+                const fileName = `장서점검_${year}${month}${day}_${hours}${minutes}.csv`;
                 const file = new File(['\uFEFF' + csvContent], fileName, { type: 'text/csv' });
+                
                 try {
                     await navigator.share({
                         title: '📚 도서관 장서점검 결과',
